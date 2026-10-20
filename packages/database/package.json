@@ -18,16 +18,18 @@
     "db:superadmin": "tsx prisma/create-superadmin.ts",
     "db:demo": "tsx prisma/sync-demo-store.ts",
     "db:demo:prod": "node dist/prisma/sync-demo-store.js",
+    "db:bootstrap-superadmin:prod": "node dist/prisma/bootstrap-superadmin.js",
     "db:studio": "prisma studio",
+    "test": "tsx --test test/**/*.test.ts",
     "test:isolation": "tsx --test test/tenant-isolation.test.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.4.2",
     "pg": "^8.22.0",
-    "prisma": "^7.9.1"
+    "prisma": "^7.10.1"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

@@ -100,7 +100,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       ? "No pudimos confirmar el resultado a tiempo. Revisá el estado antes de volver a enviar."
       : "La consulta está tardando demasiado. Volvé a intentar en unos instantes.");
     if (init.signal?.aborted) throw new ApiError(499, "La operación fue cancelada.");
-    if (error instanceof TypeError) throw new ApiError(0, "No pudimos conectarnos con InfinityShop. Revisá tu conexión y volvé a intentarlo.");
+    if (error instanceof TypeError) throw new ApiError(0, "No pudimos conectarnos con InfinityFood. Revisá tu conexión y volvé a intentarlo.");
     throw new ApiError(500, "Recibimos una respuesta inesperada. Volvé a intentarlo y, si continúa, contactá a soporte.");
   } finally {
     release();

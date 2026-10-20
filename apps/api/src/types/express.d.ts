@@ -1,3 +1,5 @@
+import type { BranchContext, TenantRole } from "@infinityfood/contracts";
+
 export type AuthContext = {
   sessionId: string;
   user: {
@@ -13,7 +15,8 @@ export type AuthContext = {
     slug: string;
     name: string;
   };
-  role: "OWNER" | "ADMIN" | "STAFF";
+  branch: BranchContext;
+  role: TenantRole;
   supportAccess: {
     originTenantId: string;
     startedAt: string;

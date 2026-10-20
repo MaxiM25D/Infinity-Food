@@ -6,6 +6,8 @@ import {
   Calculator,
   ChartNoAxesCombined,
   CircleUserRound,
+  CircleDollarSign,
+  CalendarDays,
   CreditCard,
   ExternalLink,
   LogOut,
@@ -16,6 +18,8 @@ import {
   Store,
   Tags,
   Users,
+  UtensilsCrossed,
+  ConciergeBell,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -37,12 +41,24 @@ import { TeamView } from "./team-view";
 import { GrowthView } from "./growth-view";
 import { ManagementView } from "./management-view";
 import { TenantSwitcher } from "./tenant-switcher";
+import { BranchSwitcher } from "./branch-switcher";
+import { MenuView } from "./menu-view";
+import { DiningView } from "./dining-view";
+import { PosView } from "./pos-view";
+import { ReservationsView } from "./reservations-view";
+import { ReportsView } from "./reports-view";
 import type { Role } from "./types";
+import type { BranchContext } from "@infinityfood/contracts";
 
 export type AdminTab =
   | "dashboard"
   | "categories"
   | "products"
+  | "menu"
+  | "dining"
+  | "pos"
+  | "reservations"
+  | "reports"
   | "orders"
   | "customers"
   | "management"
@@ -60,6 +76,7 @@ type Session = {
     emailVerified: boolean;
   };
   tenant: { name: string; slug: string };
+  branch: BranchContext;
   role: Role;
   supportAccess: {
     originTenantId: string;
@@ -86,6 +103,11 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
     label: "Operación",
     items: [
       { id: "management", label: "Gestión", description: "Ventas del local y stock", icon: Calculator },
+      { id: "pos", label: "POS y caja", description: "Cobros, turnos y movimientos", icon: CircleDollarSign },
+      { id: "reservations", label: "Reservas", description: "Disponibilidad, agenda y no-show", icon: CalendarDays },
+      { id: "reports", label: "Reportes", description: "Ventas, tiempos y ocupación", icon: BarChart3 },
+      { id: "menu", label: "Carta", description: "Platos, disponibilidad y QR", icon: UtensilsCrossed },
+      { id: "dining", label: "Salón", description: "Mesas, comandas y KDS", icon: ConciergeBell },
       { id: "orders", label: "Pedidos", description: "Ventas, pagos y entregas", icon: ShoppingBag },
       { id: "products", label: "Productos", description: "Catálogo, stock y variantes", icon: Boxes },
       { id: "categories", label: "Categorías", description: "Organización del catálogo", icon: Tags },
@@ -195,6 +217,11 @@ export function AdminPanel({
     dashboard: <DashboardView onNavigate={selectTab} />,
     categories: <CategoriesView onOpenProducts={() => selectTab("products")} role={session.role} />,
     products: <ProductsView onOpenCategories={() => selectTab("categories")} role={session.role} />,
+    menu: <MenuView branchRole={session.branch.role} key={session.branch.id} role={session.role} />,
+    dining: <DiningView />,
+    pos: <PosView branchRole={session.branch.role} role={session.role} />,
+    reservations: <ReservationsView />,
+    reports: <ReportsView />,
     orders: <OrdersView role={session.role} />,
     customers: <CustomersView />,
     management: <ManagementView role={session.role} />,
@@ -246,16 +273,16 @@ export function AdminPanel({
             current={session.tenant}
             emailVerified={session.user.emailVerified}
             key={session.tenant.slug}
-            onSelected={(selection) => {
-              setSession({
-                ...session,
-                tenant: selection.tenant,
-                role: selection.role,
+            onSelected={() => {
+              void apiRequest<Session>("/auth/me").then((nextSession) => {
+                setSession(nextSession);
+                selectTab("dashboard");
               });
-              selectTab("dashboard");
             }}
           />
         )}
+
+        {!session.supportAccess && <BranchSwitcher current={session.branch} onSelected={(branch) => { setSession({ ...session, branch }); selectTab("menu"); }} />}
 
         <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:#4b3b50_transparent]">
           {navigationGroups.map((group) => (
@@ -385,7 +412,7 @@ export function AdminPanel({
             </div>
           </div>
         )}
-        <div className="p-4 sm:p-7 lg:p-10" key={session.tenant.slug}>
+        <div className="p-4 sm:p-7 lg:p-10" key={`${session.tenant.slug}:${session.branch.id}`}>
           {content}
         </div>
       </main>

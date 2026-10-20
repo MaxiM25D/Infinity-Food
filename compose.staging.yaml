@@ -1,0 +1,110 @@
+name: infinityfood-staging
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: infinityfood_staging
+      POSTGRES_USER: infinityfood
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:-infinityfood-staging-local}
+    ports:
+      - "127.0.0.1:${STAGING_POSTGRES_PORT:-55439}:5432"
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infinityfood -d infinityfood_staging"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:${STAGING_MAIL_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment: &api_environment
+      NODE_ENV: development
+      APP_VERSION: stage-7
+      DATABASE_URL: postgresql://infinityfood:${STAGING_POSTGRES_PASSWORD:-infinityfood-staging-local}@postgres:5432/infinityfood_staging?schema=public
+      API_PUBLIC_URL: http://localhost:${STAGING_API_PORT:-4100}
+      WEB_URL: http://localhost:${STAGING_WEB_PORT:-3100}
+      LOG_LEVEL: info
+      METRICS_TOKEN: ${STAGING_METRICS_TOKEN:-stage7-local-metrics-token}
+      SESSION_COOKIE_SAME_SITE: lax
+      EMAIL_PROVIDER: smtp
+      EMAIL_FROM: staging@infinityfood.local
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      SMTP_FROM: staging@infinityfood.local
+      STORAGE_PROVIDER: local
+      PUBLIC_UPLOAD_DIR: /app/storage/public
+      PRIVATE_UPLOAD_DIR: /app/storage/private
+      SAAS_BILLING_PROVIDER: disabled
+    command: ["pnpm", "db:deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      <<: *api_environment
+      API_PORT: 4000
+      PORT: 4000
+    ports:
+      - "127.0.0.1:${STAGING_API_PORT:-4100}:4000"
+    volumes:
+      - staging_uploads:/app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${STAGING_API_PORT:-4100}/api
+        NEXT_PUBLIC_SOCKET_URL: http://localhost:${STAGING_API_PORT:-4100}
+        API_INTERNAL_URL: http://api:4000/api
+    environment:
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "127.0.0.1:${STAGING_WEB_PORT:-3100}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  staging_postgres_data:
+  staging_uploads:

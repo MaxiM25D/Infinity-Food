@@ -137,6 +137,9 @@ export function ProductsView({ onOpenCategories, role }: { onOpenCategories: () 
           .filter(Boolean),
         featured: form.get("featured") === "on",
         featuredOrder: Number(form.get("featuredOrder") || 0),
+        preparationTimeMinutes: Number(form.get("preparationTimeMinutes") || 0),
+        allergens: String(form.get("allergens") ?? "").split(",").map((value) => value.trim()).filter(Boolean),
+        dietaryTags: String(form.get("dietaryTags") ?? "").split(",").map((value) => value.trim()).filter(Boolean),
       };
 
       await apiRequest(editing ? `/admin/products/${editing.id}` : "/admin/products", {
@@ -366,7 +369,12 @@ function ProductForm({ categories, editing, error, busy, imageFileNames, imagePr
             </option>
           ))}
         </select></GuidedField>
-      <GuidedField label="Descripción" help="Explicá materiales, medidas, beneficios o cuidados. Ayuda al cliente a decidir." example="Ejemplo: Cuero vacuno, hebilla metálica y ancho de 3 cm."><textarea defaultValue={editing?.description ?? ""} name="description" placeholder="Describí el producto con información útil" /></GuidedField>
+      <GuidedField label="Descripción" help="Contá ingredientes, tamaño de la porción o características del plato." example="Ejemplo: Pan de masa madre, carne, cheddar y cebolla caramelizada."><textarea defaultValue={editing?.description ?? ""} name="description" placeholder="Describí el plato con información útil" /></GuidedField>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <ProductField defaultValue={String(editing?.preparationTimeMinutes ?? 15)} label="Preparación estimada" help="Minutos habituales que necesita cocina." example="Ejemplo: 15" min="0" name="preparationTimeMinutes" placeholder="15" step="1" type="number" />
+        <ProductField defaultValue={editing?.dietaryTags.join(", ") ?? ""} label="Preferencias alimentarias" help="Separalas con comas." example="Ejemplo: vegetariano, sin TACC" name="dietaryTags" placeholder="vegetariano, vegano" required={false} />
+      </div>
+      <ProductField defaultValue={editing?.allergens.join(", ") ?? ""} label="Alérgenos" help="Separalos con comas para mostrarlos claramente en la carta." example="Ejemplo: gluten, lácteos, maní" name="allergens" placeholder="gluten, lácteos" required={false} />
       </FormSection>
 
       <FormSection title="2. Precio e inventario" help="Indicá cuánto cuesta y cuántas unidades hay disponibles.">

@@ -1,12 +1,59 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { BranchContext } from "@infinityfood/contracts";
 
 import { environment } from "../../config.js";
 import { database } from "../../database.js";
 import { HttpError } from "../../errors.js";
 
 export const sessionCookieName = "infinityshop_session";
+
+export async function resolveBranchContext(
+  tenantId: string,
+  userId: string,
+  tenantRole: "OWNER" | "ADMIN" | "STAFF",
+  preferredBranchId?: string,
+): Promise<BranchContext> {
+  if (tenantRole === "OWNER" || tenantRole === "ADMIN") {
+    const branch = await database.branch.findFirst({
+      where: {
+        tenantId,
+        status: "ACTIVE",
+        ...(preferredBranchId ? { id: preferredBranchId } : {}),
+      },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    });
+    if (!branch && preferredBranchId) {
+      return resolveBranchContext(tenantId, userId, tenantRole);
+    }
+    if (!branch) throw new HttpError(409, "El restaurante no tiene una sucursal activa");
+    return { id: branch.id, slug: branch.slug, name: branch.name, timezone: branch.timezone, role: null, stationId: null };
+  }
+
+  const access = await database.membershipBranch.findFirst({
+    where: {
+      tenantId,
+      userId,
+      branch: { status: "ACTIVE" },
+      ...(preferredBranchId ? { branchId: preferredBranchId } : {}),
+    },
+    include: { branch: true },
+    orderBy: [{ branch: { isPrimary: "desc" } }, { createdAt: "asc" }],
+  });
+  if (!access && preferredBranchId) {
+    return resolveBranchContext(tenantId, userId, tenantRole);
+  }
+  if (!access) throw new HttpError(403, "No tenés acceso a una sucursal activa");
+  return {
+    id: access.branch.id,
+    slug: access.branch.slug,
+    name: access.branch.name,
+    timezone: access.branch.timezone,
+    role: access.role,
+    stationId: access.stationId,
+  };
+}
 
 function hashSessionToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -33,12 +80,13 @@ export async function createSession(
   });
 
   if (!membership) throw new HttpError(403, "El usuario no pertenece a la tienda");
+  const branch = await resolveBranchContext(activeTenantId, userId, membership.role);
 
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + environment.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
   await database.$transaction([
-    database.authSession.create({ data: { tokenHash: hashSessionToken(token), userId, activeTenantId, expiresAt } }),
+    database.authSession.create({ data: { tokenHash: hashSessionToken(token), userId, activeTenantId, activeBranchId: branch.id, expiresAt } }),
     database.user.update({ where: { id: userId }, data: { lastTenantId: activeTenantId } }),
   ]);
   setSessionCookie(response, token);
@@ -47,10 +95,24 @@ export async function createSession(
 export async function selectSessionTenant(sessionId: string, userId: string, tenantId: string): Promise<void> {
   const membership = await database.membership.findUnique({ where: { tenantId_userId: { tenantId, userId } } });
   if (!membership) throw new HttpError(403, "No tenés acceso a esa tienda");
+  const branch = await resolveBranchContext(tenantId, userId, membership.role);
   await database.$transaction([
-    database.authSession.update({ where: { id: sessionId }, data: { activeTenantId: tenantId } }),
+    database.authSession.update({ where: { id: sessionId }, data: { activeTenantId: tenantId, activeBranchId: branch.id } }),
     database.user.update({ where: { id: userId }, data: { lastTenantId: tenantId } }),
   ]);
+}
+
+export async function selectSessionBranch(
+  sessionId: string,
+  tenantId: string,
+  userId: string,
+  tenantRole: "OWNER" | "ADMIN" | "STAFF",
+  branchId: string,
+) {
+  const branch = await resolveBranchContext(tenantId, userId, tenantRole, branchId);
+  if (branch.id !== branchId) throw new HttpError(403, "No tenés acceso a esa sucursal activa");
+  await database.authSession.update({ where: { id: sessionId }, data: { activeBranchId: branch.id } });
+  return branch;
 }
 
 export async function destroySession(request: Request, response: Response): Promise<void> {
@@ -109,6 +171,7 @@ export async function requireSession(
     }
 
     let activeTenant = session.activeTenant;
+    let activeBranchId = session.activeBranchId;
     let membership = await database.membership.findUnique({
       where: {
         tenantId_userId: { tenantId: session.activeTenantId, userId: session.userId },
@@ -127,10 +190,18 @@ export async function requireSession(
       if (!fallback) throw new HttpError(403, "No tenés acceso a una tienda activa");
       membership = fallback;
       activeTenant = fallback.tenant;
+      const fallbackBranch = await resolveBranchContext(fallback.tenantId, session.user.id, fallback.role);
+      activeBranchId = fallbackBranch.id;
       await database.$transaction([
-        database.authSession.update({ where: { id: session.id }, data: { activeTenantId: fallback.tenantId } }),
+        database.authSession.update({ where: { id: session.id }, data: { activeTenantId: fallback.tenantId, activeBranchId } }),
         database.user.update({ where: { id: session.userId }, data: { lastTenantId: fallback.tenantId } }),
       ]);
+    }
+
+    const effectiveRole = supportAccessActive ? "ADMIN" : membership!.role;
+    const branch = await resolveBranchContext(activeTenant.id, session.user.id, effectiveRole, activeBranchId);
+    if (branch.id !== activeBranchId) {
+      await database.authSession.update({ where: { id: session.id }, data: { activeBranchId: branch.id } });
     }
 
     request.auth = {
@@ -148,7 +219,8 @@ export async function requireSession(
         slug: activeTenant.slug,
         name: activeTenant.name,
       },
-      role: supportAccessActive ? "ADMIN" : membership!.role,
+      branch,
+      role: effectiveRole,
       supportAccess: supportAccessActive
         ? {
             originTenantId: session.supportOriginTenantId!,
@@ -208,3 +280,23 @@ export const requireDirectTenantAccess: RequestHandler = (request, _response, ne
     next(error);
   }
 };
+
+export function requireBranchRoles(
+  ...allowedRoles: Array<NonNullable<Request["auth"]>["branch"]["role"]>
+): RequestHandler {
+  return (request, _response, next) => {
+    try {
+      const auth = getAuthContext(request);
+      if (auth.role === "OWNER" || auth.role === "ADMIN") {
+        next();
+        return;
+      }
+      if (!auth.branch.role || !allowedRoles.includes(auth.branch.role)) {
+        throw new HttpError(403, "No tenés permisos para esta sucursal");
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}

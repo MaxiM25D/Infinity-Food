@@ -98,7 +98,11 @@ adminRouter.use((request, response, next) => {
 });
 
 adminRouter.get("/dashboard", async (request, response) => {
-  const { tenant } = getAuthContext(request);
+  const auth = getAuthContext(request);
+  const { tenant } = auth;
+  const orderWhere = auth.role === "STAFF"
+    ? { tenantId: tenant.id, branchId: auth.branch.id }
+    : { tenantId: tenant.id };
   const [
     categories,
     products,
@@ -112,13 +116,13 @@ adminRouter.get("/dashboard", async (request, response) => {
     database.product.count({ where: { tenantId: tenant.id } }),
     database.product.count({ where: { tenantId: tenant.id, active: true } }),
     database.customer.count({ where: { tenantId: tenant.id } }),
-    database.order.count({ where: { tenantId: tenant.id } }),
+    database.order.count({ where: orderWhere }),
     database.order.aggregate({
-      where: { tenantId: tenant.id, paymentStatus: "APPROVED" },
+      where: { ...orderWhere, paymentStatus: "APPROVED" },
       _sum: { totalInCents: true },
     }),
     database.order.findMany({
-      where: { tenantId: tenant.id },
+      where: orderWhere,
       orderBy: { createdAt: "desc" },
       take: 5,
       select: {
@@ -150,7 +154,7 @@ adminRouter.get("/categories", async (request, response) => {
   const { tenant } = getAuthContext(request);
   const categories = await database.category.findMany({
     where: { tenantId: tenant.id },
-    orderBy: { name: "asc" },
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     include: { _count: { select: { products: true } } },
   });
   response.json({ categories });
@@ -339,7 +343,7 @@ adminRouter.post("/products", canManage, async (request, response) => {
           `Alcanzaste el límite de ${subscription.plan.maxProducts} productos del plan ${subscription.plan.name}`,
         );
       }
-      return transaction.product.create({
+      const created = await transaction.product.create({
         data: {
           ...input,
           categoryId: input.categoryId ?? null,
@@ -347,6 +351,25 @@ adminRouter.post("/products", canManage, async (request, response) => {
         },
         include: { category: { select: { id: true, name: true, slug: true } } },
       });
+      const branches = await transaction.branch.findMany({
+        where: { tenantId: tenant.id },
+        select: { id: true },
+      });
+      if (branches.length) {
+        await transaction.branchMenuItem.createMany({
+          data: branches.map((branch) => ({
+            tenantId: tenant.id,
+            branchId: branch.id,
+            productId: created.id,
+            featured: created.featured,
+            sortOrder: created.featuredOrder,
+          })),
+        });
+        const stations = await transaction.kitchenStation.findMany({ where: { tenantId: tenant.id, branchId: { in: branches.map((branch) => branch.id) }, active: true }, orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] });
+        const defaultByBranch = new Map(stations.map((station) => [station.branchId, station.id]));
+        await transaction.kitchenStationMenuItem.createMany({ data: branches.flatMap((branch) => defaultByBranch.has(branch.id) ? [{ tenantId: tenant.id, branchId: branch.id, stationId: defaultByBranch.get(branch.id)!, productId: created.id }] : []) });
+      }
+      return created;
     });
     response.status(201).json({ product });
   } catch (error) {
@@ -405,7 +428,9 @@ adminRouter.delete("/products/:id", canManage, async (request, response) => {
 });
 
 adminRouter.get("/customers", async (request, response) => {
-  const { tenant } = getAuthContext(request);
+  const auth = getAuthContext(request);
+  const { tenant } = auth;
+  const staffOrderWhere = auth.role === "STAFF" ? { branchId: auth.branch.id } : {};
   const { search, page, pageSize } = customerListQuerySchema.parse(
     request.query,
   );
@@ -438,7 +463,7 @@ adminRouter.get("/customers", async (request, response) => {
         phone: true,
         createdAt: true,
         updatedAt: true,
-        _count: { select: { orders: true } },
+        _count: { select: { orders: { where: staffOrderWhere } } },
       },
     }),
   ]);
@@ -448,6 +473,7 @@ adminRouter.get("/customers", async (request, response) => {
         by: ["customerId"],
         where: {
           tenantId: tenant.id,
+          ...staffOrderWhere,
           customerId: { in: customers.map(({ id }) => id) },
           paymentStatus: "APPROVED",
         },
@@ -473,7 +499,8 @@ adminRouter.get("/customers", async (request, response) => {
 });
 
 adminRouter.get("/customers/:id", async (request, response) => {
-  const { tenant } = getAuthContext(request);
+  const auth = getAuthContext(request);
+  const { tenant } = auth;
   const id = resourceIdSchema.parse(request.params.id);
   const customer = await database.customer.findFirst({
     where: { id, tenantId: tenant.id },
@@ -486,6 +513,7 @@ adminRouter.get("/customers/:id", async (request, response) => {
       createdAt: true,
       updatedAt: true,
       orders: {
+        where: auth.role === "STAFF" ? { branchId: auth.branch.id } : {},
         orderBy: [{ createdAt: "desc" }, { number: "desc" }],
         select: {
           id: true,
@@ -522,9 +550,13 @@ adminRouter.get("/customers/:id", async (request, response) => {
 });
 
 adminRouter.get("/orders", async (request, response) => {
-  const { tenant } = getAuthContext(request);
+  const auth = getAuthContext(request);
+  const { tenant } = auth;
   const orders = await database.order.findMany({
-    where: { tenantId: tenant.id },
+    where: {
+      tenantId: tenant.id,
+      ...(auth.role === "STAFF" ? { branchId: auth.branch.id } : {}),
+    },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -547,10 +579,15 @@ adminRouter.get("/orders", async (request, response) => {
 });
 
 adminRouter.get("/orders/:id", async (request, response) => {
-  const { tenant } = getAuthContext(request);
+  const auth = getAuthContext(request);
+  const { tenant } = auth;
   const id = resourceIdSchema.parse(request.params.id);
   const order = await database.order.findFirst({
-    where: { id, tenantId: tenant.id },
+    where: {
+      id,
+      tenantId: tenant.id,
+      ...(auth.role === "STAFF" ? { branchId: auth.branch.id } : {}),
+    },
     include: {
       items: { orderBy: { createdAt: "asc" } },
       paymentReceipt: {
@@ -642,6 +679,7 @@ const orderTransitions: Record<string, string[]> = {
 };
 const paymentTransitions: Record<string, string[]> = {
   PENDING: ["APPROVED", "REJECTED"],
+  PARTIALLY_PAID: ["APPROVED", "REFUNDED"],
   APPROVED: ["REFUNDED"],
   REJECTED: ["PENDING"],
   CANCELLED: [],

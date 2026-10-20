@@ -2,18 +2,23 @@ FROM node:22-alpine AS builder
 
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
-COPY package.json package-lock.json ./
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/api/package.json apps/api/package.json
 COPY packages/database/package.json packages/database/package.json
-COPY packages/shared/package.json packages/shared/package.json
-COPY packages/config/package.json packages/config/package.json
-RUN npm ci
+COPY packages/contracts/package.json packages/contracts/package.json
+RUN pnpm install --frozen-lockfile
 
 COPY apps/web apps/web
+COPY packages/contracts packages/contracts
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SOCKET_URL
+ARG API_INTERNAL_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN test -n "$NEXT_PUBLIC_API_URL" && npm run build --workspace @infinityshop/web
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
+RUN test -n "$NEXT_PUBLIC_API_URL" && pnpm --filter @infinityshop/web build
 
 FROM node:22-alpine AS runner
 

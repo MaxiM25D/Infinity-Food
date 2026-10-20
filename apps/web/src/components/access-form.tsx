@@ -329,12 +329,12 @@ export function AccessForm({
                     setStoreSlug(createSlug(value));
                   }}
                   placeholder="mi-tienda"
-                  prefix="infinityshop.com.ar/tienda/"
+                  prefix="infinityfood.com.ar/tienda/"
                   value={storeSlug}
                 />
                 <div>
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-medium text-white/70">InfinityShop Pro</span>
+                    <span className="text-sm font-medium text-white/70">InfinityFood Pro</span>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-300">
                       {selectedPlan.trialDays > 0 ? `${selectedPlan.trialDays} días gratis` : "Sin prueba"}
                     </span>

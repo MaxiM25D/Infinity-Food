@@ -1,9 +1,9 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 import { environment } from "../config.js";
 import { HttpError } from "../errors.js";
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
 type EmailMessage = {
   fromName: string;
@@ -22,7 +22,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
-function getTransporter(): nodemailer.Transporter {
+function getTransporter(): Transporter {
   if (
     !environment.SMTP_HOST ||
     !environment.SMTP_USER ||
@@ -97,15 +97,15 @@ async function sendAccountEmail(input: {
   actionUrl: string;
 }): Promise<void> {
   const logoUrl = new URL(
-    "/infinityshop-mark.png",
+    "/infinityfood-mark.png",
     environment.WEB_URL,
   ).toString();
   await deliverEmail({
-    fromName: "InfinityShop",
+    fromName: "InfinityFood",
     to: input.to,
     subject: input.subject,
     text: `${input.heading}\n\n${input.message}\n\n${input.actionLabel}: ${input.actionUrl}\n\nSi no solicitaste esta acción, ignorá este correo.`,
-    html: `<div style="background:#f5f1ed;padding:28px;font-family:Arial,sans-serif;color:#262321"><div style="max-width:620px;margin:auto;background:#fff;border:1px solid #e1dad3;padding:32px"><div style="display:flex;align-items:center;gap:14px"><img src="${escapeHtml(logoUrl)}" width="72" height="72" alt="InfinityShop" style="display:block;border-radius:14px"><p style="font-size:24px;font-weight:bold;margin:0">InfinityShop</p></div><h1 style="font-size:26px">${escapeHtml(input.heading)}</h1><p style="line-height:1.6">${escapeHtml(input.message)}</p><p style="margin:28px 0"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:13px 20px;background:#49225B;color:#fff;text-decoration:none;border-radius:8px">${escapeHtml(input.actionLabel)}</a></p><p style="font-size:12px;color:#78716c">Si no solicitaste esta acción, ignorá este correo.</p></div></div>`,
+    html: `<div style="background:#f5f1ed;padding:28px;font-family:Arial,sans-serif;color:#262321"><div style="max-width:620px;margin:auto;background:#fff;border:1px solid #e1dad3;padding:32px"><div style="display:flex;align-items:center;gap:14px"><img src="${escapeHtml(logoUrl)}" width="72" height="72" alt="InfinityFood" style="display:block;border-radius:14px"><p style="font-size:24px;font-weight:bold;margin:0">InfinityFood</p></div><h1 style="font-size:26px">${escapeHtml(input.heading)}</h1><p style="line-height:1.6">${escapeHtml(input.message)}</p><p style="margin:28px 0"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:13px 20px;background:#49225B;color:#fff;text-decoration:none;border-radius:8px">${escapeHtml(input.actionLabel)}</a></p><p style="font-size:12px;color:#78716c">Si no solicitaste esta acción, ignorá este correo.</p></div></div>`,
   });
 }
 
@@ -118,7 +118,7 @@ export function sendEmailVerification(input: {
   url.searchParams.set("token", input.token);
   return sendAccountEmail({
     to: input.email,
-    subject: "Verificá tu email en InfinityShop",
+    subject: "Verificá tu email en InfinityFood",
     heading: `Hola ${input.firstName}, verificá tu email`,
     message:
       "Confirmá que esta dirección te pertenece. El enlace vence en 24 horas y solo puede usarse una vez.",
@@ -136,7 +136,7 @@ export function sendPasswordResetEmail(input: {
   url.searchParams.set("token", input.token);
   return sendAccountEmail({
     to: input.email,
-    subject: "Restablecé tu contraseña de InfinityShop",
+    subject: "Restablecé tu contraseña de InfinityFood",
     heading: "Restablecé tu contraseña",
     message: `Hola ${input.firstName}. Recibimos una solicitud para cambiar tu contraseña. El enlace vence en una hora.`,
     actionLabel: "Crear nueva contraseña",

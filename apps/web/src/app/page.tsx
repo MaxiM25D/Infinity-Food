@@ -9,24 +9,24 @@ const benefits = [
   [
     "01",
     "Todo en un solo lugar",
-    "Productos, pedidos, pagos y clientes trabajando juntos.",
+    "Carta, salón, cocina, caja y reservas trabajando juntos.",
   ],
   [
     "02",
     "Tu marca primero",
-    "Una tienda personalizable, rápida y lista para vender.",
+    "Una carta QR personalizable y una experiencia ágil para cada mesa.",
   ],
   [
     "03",
     "Crece sin fricción",
-    "Planes claros y herramientas que acompañan cada etapa.",
+    "Sucursales, roles y reportes preparados para acompañar tu crecimiento.",
   ],
 ];
 
 const activity = [
-  ["#1048", "Camila R.", "$ 89.900", "Pagado"],
-  ["#1047", "Franco M.", "$ 42.500", "Preparando"],
-  ["#1046", "Valentina S.", "$ 115.000", "Nuevo"],
+  ["#1048", "Mesa 8", "$ 89.900", "Pagado"],
+  ["#1047", "Mostrador", "$ 42.500", "Preparando"],
+  ["#1046", "Mesa 3", "$ 115.000", "Nuevo"],
 ];
 
 export const dynamic = "force-dynamic";
@@ -70,37 +70,37 @@ export default async function HomePage() {
             <span
               className={`${styles.pulseDot} h-2 w-2 rounded-full bg-emerald-400`}
             />
-            Tu ecommerce listo para crecer
+            Tu restaurante conectado de punta a punta
           </div>
           <h1 className="max-w-3xl text-5xl font-semibold leading-[.98] tracking-[-0.055em] sm:text-6xl lg:text-[5rem]">
-            Vendé más.
+            Atendé mejor.
             <br />
             <span className="bg-gradient-to-r from-[#bf6bff] via-[#a94be2] to-[#46a5f7] bg-clip-text text-transparent">
-              Gestioná menos.
+              Gestioná todo.
             </span>
           </h1>
           <p className="mt-7 max-w-xl text-base leading-7 text-indigo-100/60 sm:text-lg sm:leading-8">
-            Creá tu tienda online y administrá catálogo, ventas, pagos y
-            clientes desde una plataforma simple que trabaja con vos.
+            Unificá carta QR, pedidos, comandas, cocina, caja, reservas y
+            reportes en una plataforma diseñada para tu operación diaria.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Link
               className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#a334d2] to-[#397eea] px-6 py-4 text-sm font-bold text-white shadow-[0_16px_50px_rgba(121,54,210,.3)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(121,54,210,.45)]"
               href="/login?mode=register"
             >
-              Crear mi tienda{" "}
+              Crear mi restaurante{" "}
               <span className="transition group-hover:translate-x-1">→</span>
             </Link>
             <Link
               className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-6 py-4 text-sm font-bold text-white backdrop-blur transition hover:bg-white/10"
               href="/tienda/infinityshop-demo"
             >
-              Ver tienda demo
+              Ver demo
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
             {activePlan.trialDays > 0 && <span>✓ {activePlan.trialDays} días gratis</span>}
-            <span>✓ Sin tarjeta para crear tu tienda</span>
+            <span>✓ Sin tarjeta para crear tu restaurante</span>
             <span>✓ Sin costo de instalación</span>
             <span>✓ Cancelá cuando quieras</span>
           </div>
@@ -121,11 +121,12 @@ export default async function HomePage() {
               .flatMap(() => [
                 "Mercado Pago",
                 "Transferencias",
-                "Stock en tiempo real",
-                "Pedidos",
-                "Clientes",
-                "Analytics",
-                "Tu propia marca",
+                "Carta QR",
+                "Pedidos por mesa",
+                "Comandas",
+                "KDS",
+                "Caja y reservas",
+                "Reportes",
               ])
               .map((item, index) => (
                 <span key={`${item}-${index}`}>{item}</span>
@@ -140,12 +141,12 @@ export default async function HomePage() {
       >
         <div className="max-w-2xl">
           <p className="text-xs font-bold uppercase tracking-[.22em] text-fuchsia-300">
-            La base de tu negocio digital
+            La base de tu operación gastronómica
           </p>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">
-            Menos herramientas sueltas.
+            Menos pantallas aisladas.
             <br />
-            Más tiempo para crecer.
+            Más tiempo para atender.
           </h2>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-3">
@@ -173,10 +174,10 @@ export default async function HomePage() {
             Un plan simple y transparente
           </p>
           <h2 className="mx-auto mt-4 max-w-2xl text-3xl font-semibold tracking-tight sm:text-5xl">
-            Todo InfinityShop, sin funciones escondidas.
+            Todo InfinityFood, sin funciones escondidas.
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/50 sm:text-base">
-            {activePlan.trialDays > 0 ? `Creá tu tienda sin tarjeta. Tenés ${activePlan.trialDays} días gratis y, si decidís continuar, vinculás Mercado Pago para pagar ${activePlan.price} ${activePlan.currency} por mes.` : `Creá tu tienda sin tarjeta y, si decidís continuar, vinculás Mercado Pago para pagar ${activePlan.price} ${activePlan.currency} por mes.`} Cancelá cuando quieras.
+            {activePlan.trialDays > 0 ? `Creá tu restaurante sin tarjeta. Tenés ${activePlan.trialDays} días gratis y, si decidís continuar, vinculás Mercado Pago para pagar ${activePlan.price} ${activePlan.currency} por mes.` : `Creá tu restaurante sin tarjeta y, si decidís continuar, vinculás Mercado Pago para pagar ${activePlan.price} ${activePlan.currency} por mes.`} Cancelá cuando quieras.
           </p>
         </div>
         <div className="mx-auto grid max-w-3xl gap-5">
@@ -218,7 +219,7 @@ export default async function HomePage() {
                 className={`mt-9 flex w-full items-center justify-center rounded-xl px-6 py-4 text-sm font-bold transition hover:-translate-y-0.5 ${plan.featured ? "bg-gradient-to-r from-[#a334d2] to-[#397eea] text-white" : "bg-white text-[#080a2d]"}`}
                 href={`/login?mode=register&plan=${plan.code}`}
               >
-                Activar InfinityShop Pro →
+                Activar InfinityFood Pro →
               </Link>
             </article>
           ))}
@@ -249,19 +250,19 @@ function DashboardPreview() {
           </div>
           <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-6">
             <Metric
-              label="Ventas este mes"
+              label="Ventas del mes"
               value="$ 2.840.500"
               change="+24,8%"
             />
             <Metric label="Pedidos" value="184" change="+18 hoy" />
-            <Metric label="Conversión" value="4,8%" change="+0,7%" />
+            <Metric label="Ocupación" value="68%" change="+7%" />
           </div>
           <div className="grid gap-4 px-4 pb-5 sm:grid-cols-[1.15fr_.85fr] sm:px-6 sm:pb-6">
             <div className="rounded-2xl border border-white/10 bg-white/[.035] p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-white/40">Rendimiento</p>
-                  <p className="mt-1 font-semibold">Ventas de la semana</p>
+                  <p className="mt-1 font-semibold">Servicios de la semana</p>
                 </div>
                 <span className="rounded-lg bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300">
                   EN VIVO
@@ -328,9 +329,7 @@ function DashboardPreview() {
       </div>
       <div className="absolute -bottom-1 right-2 rounded-2xl border border-white/10 bg-[#111536]/90 px-4 py-3 shadow-2xl backdrop-blur sm:right-8">
         <p className="text-[10px] text-white/40">Stock sincronizado</p>
-        <p className="mt-1 text-sm font-semibold text-blue-300">
-          248 productos activos
-        </p>
+        <p className="mt-1 text-sm font-semibold text-blue-300">Carta disponible</p>
       </div>
     </div>
   );

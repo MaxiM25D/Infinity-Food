@@ -110,7 +110,7 @@ export function CustomersView() {
 
       {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       <div className="mb-5 grid gap-3 sm:grid-cols-3"><CustomerSummaryCard icon={UserRound} label="Clientes registrados" value={String(pagination.total)} help="Coinciden con la búsqueda actual." /><CustomerSummaryCard icon={ShoppingBag} label="Pedidos en esta página" value={String(customers.reduce((total, customer) => total + customer._count.orders, 0))} help="Cantidad de compras de los clientes visibles." /><CustomerSummaryCard icon={CircleDollarSign} label="Compras aprobadas" value={money(customers.reduce((total, customer) => total + customer.approvedSpentInCents, 0))} help="Total aprobado de los clientes visibles." /></div>
-      <Tip title="Cómo se crea un cliente">InfinityShop registra al comprador cuando completa un checkout. Si luego crea una cuenta con el mismo email, podrá consultar sus pedidos desde Mi cuenta.</Tip>
+      <Tip title="Cómo se crea un cliente">InfinityFood registra al comprador cuando completa un checkout. Si luego crea una cuenta con el mismo email, podrá consultar sus pedidos desde Mi cuenta.</Tip>
       {loading ? (
         <div role="status" className="mt-5 h-56 animate-pulse rounded-2xl bg-[#eee9ef]" />
       ) : customers.length === 0 ? (

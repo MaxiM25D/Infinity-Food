@@ -241,6 +241,12 @@ test("STAFF puede consultar pero no modificar el catálogo", async () => {
     },
   });
   assert.ok(staff.id);
+  const primaryBranch = await database.branch.findFirstOrThrow({
+    where: { tenantId: tenant.id, isPrimary: true },
+  });
+  await database.membershipBranch.create({
+    data: { tenantId: tenant.id, branchId: primaryBranch.id, userId: staff.id, role: "STAFF" },
+  });
 
   const login = await staffAgent
     .post("/api/auth/login")

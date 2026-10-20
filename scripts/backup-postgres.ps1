@@ -1,22 +1,28 @@
 param(
-  [string]$OutputDirectory = (Join-Path $PSScriptRoot "..\backups")
+  [string]$OutputDirectory = (Join-Path $PSScriptRoot "..\backups"),
+  [switch]$UseDocker
 )
 
 $ErrorActionPreference = "Stop"
-
-if (-not $env:DATABASE_URL) {
-  throw "DATABASE_URL no está configurada"
-}
+if (-not $env:DATABASE_URL) { throw "DATABASE_URL no está configurada" }
 
 $resolvedOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $resolvedOutput | Out-Null
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$backupPath = Join-Path $resolvedOutput "infinityshop-$timestamp.dump"
+$backupPath = Join-Path $resolvedOutput "infinityfood-$timestamp.dump"
 
-& pg_dump --dbname $env:DATABASE_URL --format custom --no-owner --no-acl --file $backupPath
-if ($LASTEXITCODE -ne 0) {
+try {
+  $pgDump = Get-Command pg_dump -ErrorAction SilentlyContinue
+  if ($pgDump -and -not $UseDocker) {
+    & $pgDump.Source --dbname $env:DATABASE_URL --format custom --no-owner --no-acl --file $backupPath
+  } else {
+    $dockerUrl = $env:DATABASE_URL.Replace("@localhost:", "@host.docker.internal:").Replace("@127.0.0.1:", "@host.docker.internal:").Replace("?schema=public", "").Replace("&schema=public", "")
+    docker run --rm --mount "type=bind,source=$resolvedOutput,target=/backup" postgres:17-alpine pg_dump --dbname $dockerUrl --format custom --no-owner --no-acl --file "/backup/$(Split-Path -Leaf $backupPath)"
+  }
+  if ($LASTEXITCODE -ne 0) { throw "pg_dump finalizó con código $LASTEXITCODE" }
+} catch {
   Remove-Item -LiteralPath $backupPath -ErrorAction SilentlyContinue
-  throw "pg_dump finalizó con código $LASTEXITCODE"
+  throw
 }
 
 $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $backupPath

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://infinityshop.com.ar";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://infinityfood.com.ar";
   return {
     rules: [{
       userAgent: "*",

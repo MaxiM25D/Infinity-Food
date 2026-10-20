@@ -32,7 +32,7 @@ export type ProviderInvoice = {
 
 function accessToken(): string {
   if (environment.SAAS_BILLING_PROVIDER !== "mercado_pago" || !environment.SAAS_MP_ACCESS_TOKEN) {
-    throw new HttpError(503, "La facturación automática de InfinityShop todavía no está configurada");
+    throw new HttpError(503, "La facturación automática de InfinityFood todavía no está configurada");
   }
   return environment.SAAS_MP_ACCESS_TOKEN;
 }
@@ -48,7 +48,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     },
   });
   const body = await response.json().catch(() => null) as (T & { message?: string }) | null;
-  if (!response.ok || !body) throw new HttpError(502, body?.message ?? "Mercado Pago no pudo procesar la facturación de InfinityShop");
+  if (!response.ok || !body) throw new HttpError(502, body?.message ?? "Mercado Pago no pudo procesar la facturación de InfinityFood");
   return body;
 }
 
@@ -66,7 +66,7 @@ export async function createProviderSubscription(input: {
   trialEndsAt: Date | null;
 }): Promise<ProviderSubscription> {
   const body: Record<string, unknown> = {
-    reason: `InfinityShop ${input.planName} - ${input.tenantName}`,
+    reason: `InfinityFood ${input.planName} - ${input.tenantName}`,
     external_reference: input.tenantId,
     payer_email: input.payerEmail,
     back_url: `${environment.WEB_URL.replace(/\/$/, "")}/admin?section=plan&billing=return`,
@@ -92,7 +92,7 @@ export async function updateProviderSubscription(providerId: string, input: {
   return request<ProviderSubscription>(`/preapproval/${encodeURIComponent(providerId)}`, {
     method: "PUT",
     body: JSON.stringify({
-      reason: `InfinityShop ${input.planName} - ${input.tenantName}`,
+      reason: `InfinityFood ${input.planName} - ${input.tenantName}`,
       auto_recurring: { transaction_amount: input.priceInCents / 100, currency_id: input.currency },
     }),
   });

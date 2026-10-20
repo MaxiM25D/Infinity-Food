@@ -23,6 +23,7 @@ tenantRouter.get("/context", requireSession, (request, response) => {
 
   response.json({
     tenant: { name: auth.tenant.name, slug: auth.tenant.slug },
+    branch: auth.branch,
     role: auth.role,
   });
 });

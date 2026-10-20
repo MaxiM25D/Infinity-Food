@@ -60,6 +60,7 @@ async function seed(): Promise<void> {
       name: "InfinityShop",
       slug: "infinityshop-seed",
       memberships: { create: { userId: infinityShopOwner.id, role: "OWNER" } },
+      branches: { create: { id: "branch_infinityshop_seed", slug: "principal", name: "Casa central", isPrimary: true } },
       subscription: { create: { planId: "plan_pro", status: "ACTIVE", currentPeriodFrom: new Date() } },
     },
   });
@@ -77,6 +78,12 @@ async function seed(): Promise<void> {
       stock: 12,
     },
   });
+  await database.branchMenuItem.create({
+    data: { tenantId: infinityShop.id, branchId: "branch_infinityshop_seed", productId: infinityShopProduct.id },
+  });
+  const infinityKitchen = await database.kitchenStation.create({ data: { tenantId: infinityShop.id, branchId: "branch_infinityshop_seed", name: "Cocina" } });
+  await database.kitchenStationMenuItem.create({ data: { tenantId: infinityShop.id, branchId: "branch_infinityshop_seed", stationId: infinityKitchen.id, productId: infinityShopProduct.id } });
+  await database.restaurantTable.create({ data: { tenantId: infinityShop.id, branchId: "branch_infinityshop_seed", code: "M1", name: "Mesa 1", maxCapacity: 4 } });
   const infinityShopCustomer = await database.customer.create({
     data: {
       tenantId: infinityShop.id,
@@ -100,6 +107,7 @@ async function seed(): Promise<void> {
   const infinityShopOrder = await database.order.create({
     data: {
       tenantId: infinityShop.id,
+      branchId: "branch_infinityshop_seed",
       customerId: infinityShopCustomer.id,
       number: 1,
       customerEmail: infinityShopCustomer.email,
@@ -126,6 +134,7 @@ async function seed(): Promise<void> {
       name: "Tienda Norte",
       slug: "norte-demo",
       memberships: { create: { userId: norteOwner.id, role: "OWNER" } },
+      branches: { create: { id: "branch_norte_seed", slug: "principal", name: "Casa central", isPrimary: true } },
       subscription: { create: { planId: "plan_pro", status: "ACTIVE", currentPeriodFrom: new Date() } },
     },
   });
@@ -143,6 +152,11 @@ async function seed(): Promise<void> {
       stock: 8,
     },
   });
+  await database.branchMenuItem.create({
+    data: { tenantId: norte.id, branchId: "branch_norte_seed", productId: norteProduct.id },
+  });
+  const norteKitchen = await database.kitchenStation.create({ data: { tenantId: norte.id, branchId: "branch_norte_seed", name: "Cocina" } });
+  await database.kitchenStationMenuItem.create({ data: { tenantId: norte.id, branchId: "branch_norte_seed", stationId: norteKitchen.id, productId: norteProduct.id } });
   const norteCustomer = await database.customer.create({
     data: {
       tenantId: norte.id,
@@ -166,6 +180,7 @@ async function seed(): Promise<void> {
   const norteOrder = await database.order.create({
     data: {
       tenantId: norte.id,
+      branchId: "branch_norte_seed",
       customerId: norteCustomer.id,
       number: 1,
       customerEmail: norteCustomer.email,

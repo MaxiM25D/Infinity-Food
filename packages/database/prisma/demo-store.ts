@@ -198,4 +198,24 @@ export async function syncDemoStore(transaction: Prisma.TransactionClient, tenan
       create: data,
     });
   }
+
+  const [branches, products] = await Promise.all([
+    transaction.branch.findMany({ where: { tenantId }, select: { id: true } }),
+    transaction.product.findMany({ where: { tenantId }, select: { id: true, featured: true, featuredOrder: true } }),
+  ]);
+  await transaction.branchMenuItem.createMany({
+    data: products.flatMap((product) => branches.map((branch) => ({ tenantId, branchId: branch.id, productId: product.id, featured: product.featured, sortOrder: product.featuredOrder }))),
+    skipDuplicates: true,
+  });
+  for (const branch of branches) {
+    const station = await transaction.kitchenStation.upsert({
+      where: { tenantId_branchId_name: { tenantId, branchId: branch.id, name: "Cocina" } },
+      update: { active: true },
+      create: { tenantId, branchId: branch.id, name: "Cocina", type: "KITCHEN" },
+    });
+    await transaction.kitchenStationMenuItem.createMany({
+      data: products.map((product) => ({ tenantId, branchId: branch.id, stationId: station.id, productId: product.id })),
+      skipDuplicates: true,
+    });
+  }
 }

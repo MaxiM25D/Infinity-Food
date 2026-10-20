@@ -59,6 +59,9 @@ export const createCategorySchema = z
   .object({
     name: z.string().trim().min(2).max(80),
     slug,
+    description: z.string().trim().max(500).nullable().optional(),
+    displayOrder: z.number().int().min(0).max(10_000).default(0),
+    active: z.boolean().default(true),
   })
   .strict();
 
@@ -81,6 +84,9 @@ export const createProductSchema = z
     tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
     featured: z.boolean().default(false),
     featuredOrder: z.number().int().min(0).max(10_000).default(0),
+    preparationTimeMinutes: z.number().int().min(0).max(1440).default(15),
+    allergens: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
+    dietaryTags: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
   })
   .strict();
 

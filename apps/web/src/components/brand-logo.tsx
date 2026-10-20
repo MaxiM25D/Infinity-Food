@@ -16,7 +16,7 @@ export function BrandLogo({
 }) {
   return (
     <Link
-      aria-label={compact ? "InfinityShop - ir al inicio" : undefined}
+      aria-label={compact ? "InfinityFood - ir al inicio" : undefined}
       className="inline-flex items-center gap-3"
       href="/"
     >
@@ -28,7 +28,7 @@ export function BrandLogo({
           height={256}
           priority={priority}
           sizes={size === "sm" ? "32px" : "44px"}
-          src="/infinityshop-mark.png"
+          src="/infinityfood-mark.png"
           width={256}
         />
       </span>
@@ -39,7 +39,7 @@ export function BrandLogo({
               tone === "dark" ? "text-white" : "text-[#241a28]"
             }`}
           >
-            InfinityShop
+            InfinityFood
           </strong>
           <span
             className={`block text-[9px] font-semibold uppercase tracking-[0.28em] ${

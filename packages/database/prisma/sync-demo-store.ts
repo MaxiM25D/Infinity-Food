@@ -10,7 +10,12 @@ async function run(): Promise<void> {
     const tenant = await transaction.tenant.upsert({
       where: { slug: storeSlug },
       update: { status: "ACTIVE" },
-      create: { slug: storeSlug, name: "Nébula Living", status: "ACTIVE" },
+      create: { slug: storeSlug, name: "Nébula Living", status: "ACTIVE", branches: { create: { slug: "principal", name: "Casa central", isPrimary: true } } },
+    });
+    await transaction.branch.upsert({
+      where: { tenantId_slug: { tenantId: tenant.id, slug: "principal" } },
+      update: { status: "ACTIVE", isPrimary: true },
+      create: { tenantId: tenant.id, slug: "principal", name: "Casa central", isPrimary: true },
     });
 
     const proPlan = await transaction.plan.findUnique({ where: { id: "plan_pro" } });

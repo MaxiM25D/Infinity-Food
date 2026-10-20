@@ -1,44 +1,49 @@
 {
-  "name": "infinityshop",
+  "name": "infinityfood",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "dev": "npm run db:up && concurrently --kill-others-on-fail --names WEB,API \"npm:dev:web\" \"npm:dev:api\"",
-    "dev:web": "npm run dev --workspace @infinityshop/web",
-    "dev:api": "npm run build --workspace @infinityshop/database && npm run dev --workspace @infinityshop/api",
-    "build": "npm run build --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "db:generate": "prisma generate --config packages/database/prisma.config.ts",
-    "db:migrate": "prisma migrate dev --config packages/database/prisma.config.ts",
-    "db:deploy": "prisma migrate deploy --config packages/database/prisma.config.ts",
-    "db:seed": "prisma db seed --config packages/database/prisma.config.ts",
-    "db:studio": "prisma studio --config packages/database/prisma.config.ts",
-    "db:test:isolation": "npm run test:isolation --workspace @infinityshop/database",
-    "db:superadmin": "npm run db:superadmin --workspace @infinityshop/database",
-    "db:demo": "npm run db:demo --workspace @infinityshop/database",
-    "db:demo:prod": "npm run db:demo:prod --workspace @infinityshop/database",
-    "db:prepare:prod": "npm run db:deploy && npm run db:demo:prod",
-    "test:api": "npm run build --workspace @infinityshop/database && npm run test --workspace @infinityshop/api",
-    "check": "npm run typecheck && npm run lint && npm run build && npm run test:api && npm run db:test:isolation",
+    "dev": "pnpm db:up && turbo run dev --parallel",
+    "dev:web": "pnpm --filter @infinityshop/web dev",
+    "dev:api": "pnpm --filter @infinityshop/database build && pnpm --filter @infinityshop/api dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @infinityshop/database db:generate",
+    "db:migrate": "pnpm --filter @infinityshop/database db:migrate",
+    "db:deploy": "pnpm --filter @infinityshop/database exec prisma migrate deploy --config prisma.config.ts",
+    "db:seed": "pnpm --filter @infinityshop/database db:seed",
+    "db:studio": "pnpm --filter @infinityshop/database db:studio",
+    "db:test:isolation": "pnpm --filter @infinityshop/database test:isolation",
+    "db:superadmin": "pnpm --filter @infinityshop/database db:superadmin",
+    "db:demo": "pnpm --filter @infinityshop/database db:demo",
+    "db:demo:prod": "pnpm --filter @infinityshop/database db:demo:prod",
+    "db:prepare:prod": "pnpm db:deploy && pnpm db:demo:prod && pnpm --filter @infinityshop/database db:bootstrap-superadmin:prod",
+    "test:api": "pnpm --filter @infinityshop/database build && pnpm --filter @infinityshop/api test",
+    "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test",
+    "test:load": "node scripts/load-test.mjs",
+    "test:e2e": "playwright test",
+    "db:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-postgres.ps1",
+    "db:restore:drill": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restore-drill.ps1",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres"
+    "db:logs": "docker compose logs -f postgres",
+    "staging:up": "docker compose -f compose.staging.yaml up -d --build --wait",
+    "staging:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/staging-smoke.ps1",
+    "staging:down": "docker compose -f compose.staging.yaml down"
   },
   "engines": {
     "node": ">=22.0.0"
   },
-  "packageManager": "npm@10.8.2",
-  "overrides": {
-    "deepmerge-ts": "^8.0.0",
-    "nanoid": "^3.3.18",
-    "mysql2": "3.24.3"
+  "packageManager": "pnpm@10.34.7",
+  "pnpm": {
+    "overrides": {
+      "nanoid": "3.3.18"
+    }
   },
   "devDependencies": {
-    "concurrently": "^10.0.5"
+    "@playwright/test": "^1.55.0",
+    "turbo": "2.11.8"
   }
 }

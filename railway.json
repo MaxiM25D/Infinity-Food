@@ -7,13 +7,15 @@
       "apps/api/**",
       "packages/database/**",
       "package.json",
-      "package-lock.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "turbo.json",
       "Dockerfile.api",
       "railway.json"
     ]
   },
   "deploy": {
-    "preDeployCommand": ["npm run db:prepare:prod"],
+    "preDeployCommand": ["pnpm db:prepare:prod"],
     "healthcheckPath": "/api/ready",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

@@ -136,7 +136,7 @@ export async function syncProviderSubscription(provider: ProviderSubscription) {
     where: { providerSubscriptionId: provider.id },
     include: { plan: true, pendingPlan: true },
   });
-  if (!subscription) throw new HttpError(404, "Suscripción de InfinityShop no encontrada");
+  if (!subscription) throw new HttpError(404, "Suscripción de InfinityFood no encontrada");
   if (provider.external_reference && provider.external_reference !== subscription.tenantId) throw new HttpError(409, "La referencia del proveedor no coincide con la tienda");
 
   const trialActive = Boolean(subscription.trialEndsAt && subscription.trialEndsAt > new Date());

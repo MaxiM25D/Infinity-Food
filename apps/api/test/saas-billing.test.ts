@@ -78,7 +78,7 @@ test("OWNER programa y revierte la cancelación sin cancelar ventas inmediatamen
   assert.equal(resumed.body.subscription.cancelAtPeriodEnd, false);
 });
 
-test("checkout automático avisa claramente cuando faltan credenciales de InfinityShop", async () => {
+test("checkout automático avisa claramente cuando faltan credenciales de InfinityFood", async () => {
   const response = await agent.post("/api/billing/checkout").send({ planCode: "PRO" });
   assert.equal(response.status, 503);
 });

@@ -23,7 +23,10 @@ test("failed requests always release protection and are not retried", async () =
     throw new Error("network failure");
   };
   try {
-    await assert.rejects(apiRequest("/test", { method: "POST" }), /network failure/);
+    await assert.rejects(
+      apiRequest("/test", { method: "POST" }),
+      /Recibimos una respuesta inesperada/,
+    );
     assert.equal(calls, 1);
     assert.equal(isOperationPending(), false);
   } finally {

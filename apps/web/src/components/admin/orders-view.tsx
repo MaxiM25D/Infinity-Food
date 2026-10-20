@@ -18,6 +18,7 @@ const statusLabels: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 const paymentLabels: Record<string, string> = {
+  PARTIALLY_PAID: "Pago parcial",
   APPROVED: "Pago aprobado",
   REJECTED: "Pago rechazado",
   CANCELLED: "Pago cancelado",
@@ -198,7 +199,7 @@ export function OrdersView({ role }: { role: Role }) {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_13rem_13rem]">
           <label className="relative"><span className="sr-only">Buscar pedido</span><Search className="absolute left-3.5 top-3.5 h-4 w-4 text-[#918495]" /><input className="control pl-10!" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Número, cliente o email" /></label>
           <select aria-label="Filtrar por estado del pedido" className="control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">Todos los estados</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-          <select aria-label="Filtrar por estado del pago" className="control" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}><option value="ALL">Todos los pagos</option><option value="PENDING">Pago pendiente</option><option value="REVIEW">Pago en revisión</option><option value="APPROVED">Pago aprobado</option><option value="REJECTED">Pago rechazado</option><option value="REFUNDED">Reembolsado</option></select>
+          <select aria-label="Filtrar por estado del pago" className="control" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}><option value="ALL">Todos los pagos</option><option value="PENDING">Pago pendiente</option><option value="REVIEW">Pago en revisión</option><option value="PARTIALLY_PAID">Pago parcial</option><option value="APPROVED">Pago aprobado</option><option value="REJECTED">Pago rechazado</option><option value="REFUNDED">Reembolsado</option></select>
         </div><p className="mt-3 text-xs text-[#918495]">Mostrando {filteredOrders.length} de {orders.length} pedidos.</p>
       </section>
       {loading ? <div className="h-56 animate-pulse rounded-2xl bg-[#eee9ef]" /> : orders.length === 0 ? <Empty /> : filteredOrders.length === 0 ? <EmptyState title="No encontramos pedidos con esos filtros">Probá otro número, nombre o estado.</EmptyState> : <OrderTable orders={filteredOrders} onOpen={(id) => void open(id)} />}
@@ -306,7 +307,7 @@ export function OrdersView({ role }: { role: Role }) {
             {canManage && (
               <section className="mt-8 space-y-3 border-t border-stone-200 pt-6">
                 <h3 className="font-semibold">Siguiente paso</h3>
-                <p className="text-xs leading-5 text-[#807384]">InfinityShop muestra solo las acciones que corresponden al estado actual.</p>
+                <p className="text-xs leading-5 text-[#807384]">InfinityFood muestra solo las acciones que corresponden al estado actual.</p>
                 {selected.paymentMethod === "BANK_TRANSFER" && selected.paymentStatus === "PENDING" && (
                   <><Tip title={selected.paymentReceipt ? "Comprobante recibido" : "Esperando comprobante"}>{selected.paymentReceipt ? "Abrilo y compará importe, titular y referencia antes de aprobar. Al aprobar, el stock queda confirmado." : "Todavía no podés aprobar la transferencia. El cliente debe adjuntar primero su comprobante."}</Tip><div className="grid gap-2 sm:grid-cols-2">
                     <Action disabled={busy || !selected.paymentReceipt} label="Aprobar transferencia" onClick={() => void update({ paymentStatus: "APPROVED" })} primary />
@@ -384,7 +385,7 @@ function DispatchForm({ busy, onSubmit, order }: { busy: boolean; onSubmit: (eve
       <div><h4 className="text-sm font-semibold">Datos del envío</h4><p className="mt-1 text-xs leading-5 text-[#807384]">Se guardan en el seguimiento del cliente. El transportista es obligatorio; el resto puede completarse si está disponible.</p></div>
       <Field label="Transportista" help="Se completa con la empresa configurada en el método, pero podés cambiarla." example="Ejemplo: Correo Argentino"><input defaultValue={order.shippingCarrierName ?? ""} name="carrier" placeholder="Correo Argentino" required /></Field>
       <Field label="Código de seguimiento (opcional)" help="Identificador entregado por el transportista." example="Ejemplo: CP123456789AR"><input name="trackingCode" placeholder="CP123456789AR" /></Field>
-      <Field label="Enlace de seguimiento (opcional)" help={order.shippingTrackingUrlTemplate ? "Si lo dejás vacío, InfinityShop generará el enlace configurado para este transportista." : "URL completa donde el cliente puede consultar su envío."} example="Ejemplo: https://correo.com/seguimiento"><input name="trackingUrl" placeholder="Se genera automáticamente cuando está configurado" type="url" /></Field>
+      <Field label="Enlace de seguimiento (opcional)" help={order.shippingTrackingUrlTemplate ? "Si lo dejás vacío, InfinityFood generará el enlace configurado para este transportista." : "URL completa donde el cliente puede consultar su envío."} example="Ejemplo: https://correo.com/seguimiento"><input name="trackingUrl" placeholder="Se genera automáticamente cuando está configurado" type="url" /></Field>
       <Field label="Entrega estimada (opcional)" help="La calculamos usando el plazo máximo prometido; podés corregirla."><input defaultValue={estimatedBusinessDate(order.shippingEstimatedDaysMax)} name="estimatedDelivery" type="date" /></Field>
       <button className={`${styles.button} w-full`} disabled={busy} type="submit">
         Despachar y notificar

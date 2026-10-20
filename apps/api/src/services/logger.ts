@@ -22,7 +22,7 @@ export function log(level: Level, event: string, details: Details = {}): void {
   const entry = JSON.stringify({
     timestamp: new Date().toISOString(),
     level,
-    service: "infinityshop-api",
+    service: "infinityfood-api",
     version: environment.APP_VERSION,
     event,
     ...Object.fromEntries(Object.entries(details).map(([key, value]) => [key, serialize(value)])),

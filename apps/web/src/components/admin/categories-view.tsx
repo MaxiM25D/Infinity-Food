@@ -42,7 +42,13 @@ export function CategoriesView({ onOpenProducts, role }: { onOpenProducts: () =>
       const slug = String(form.get("slug") ?? "").trim() || createSlug(name);
       await apiRequest(editing ? `/admin/categories/${editing.id}` : "/admin/categories", {
         method: editing ? "PATCH" : "POST",
-        body: JSON.stringify({ name, slug }),
+        body: JSON.stringify({
+          name,
+          slug,
+          description: form.get("description") || null,
+          displayOrder: Number(form.get("displayOrder") || 0),
+          active: form.get("active") === "on",
+        }),
       });
       formElement.reset();
       setEditing(null);
@@ -67,8 +73,8 @@ export function CategoriesView({ onOpenProducts, role }: { onOpenProducts: () =>
 
   return (
     <div className={`${styles.surface} mx-auto max-w-7xl`}>
-      <header className="mb-6"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6E3482]">Categorías</p><h2 className="mt-2 text-2xl font-semibold tracking-tight">Ordená tu catálogo</h2><p className="mt-2 text-sm text-[#807384]">Agrupá productos para que tus clientes encuentren lo que buscan sin recorrer todo el catálogo.</p></header>
-      <Tip title="Ejemplo simple">Si vendés indumentaria, podés crear Remeras, Pantalones y Accesorios. Un producto puede pertenecer a una categoría.</Tip>
+      <header className="mb-6"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6E3482]">Secciones</p><h2 className="mt-2 text-2xl font-semibold tracking-tight">Ordená tu carta</h2><p className="mt-2 text-sm text-[#807384]">Agrupá platos y bebidas para que tus clientes recorran la carta rápidamente.</p></header>
+      <Tip title="Ejemplo simple">Podés crear Entradas, Principales, Postres y Bebidas. Cada plato pertenece a una sección.</Tip>
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
       <section className="overflow-hidden rounded-[1.5rem] border border-[#e6dfe8] bg-white">
         <div className="flex items-center justify-between gap-4 border-b border-[#eee9ef] px-6 py-5">
@@ -106,6 +112,9 @@ export function CategoriesView({ onOpenProducts, role }: { onOpenProducts: () =>
           <form className="mt-6 space-y-5" key={editing?.id ?? "new"} onSubmit={submit}>
             <Field label="Nombre de la categoría" help="Es el nombre que verá el cliente en el menú y los filtros." example="Ejemplo: Cinturones"><input defaultValue={editing?.name} name="name" placeholder="Cinturones" required /></Field>
             <Field label="Dirección web (opcional)" help="Es la parte final de la URL. Dejala vacía para generarla desde el nombre." example="Ejemplo: /categoria/cinturones"><input defaultValue={editing?.slug} name="slug" placeholder="cinturones" /></Field>
+            <Field label="Descripción (opcional)" help="Una breve introducción para esta sección de la carta." example="Ejemplo: Para compartir antes del plato principal."><textarea defaultValue={editing?.description ?? ""} name="description" /></Field>
+            <Field label="Orden" help="Los números menores aparecen primero." example="Ejemplo: 10"><input defaultValue={editing?.displayOrder ?? 0} min="0" name="displayOrder" type="number" /></Field>
+            <label className="flex items-center justify-between rounded-xl border border-[#e6dfe8] px-4 py-3 text-sm font-semibold">Visible en la carta<input defaultChecked={editing?.active ?? true} name="active" type="checkbox" /></label>
             {error && <p className="rounded-xl bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</p>}
             <div className="flex gap-2">
               <button className={`${styles.button} flex-1`} disabled={busy} type="submit">{busy ? "Guardando…" : editing ? "Guardar cambios" : "Crear categoría"}</button>

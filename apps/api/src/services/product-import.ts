@@ -306,6 +306,22 @@ export async function importProducts(tenantId: string, file: Express.Multer.File
       for (let index = 0; index < updates.length; index += 25) {
         await Promise.all(updates.slice(index, index + 25).map((product) => transaction.product.update({ where: { id: existingBySku.get(product.data.sku)! }, data: { ...product.data, categoryId: product.categoryName ? categoryByName.get(product.categoryName.toLocaleLowerCase("es"))?.id ?? null : null } })));
       }
+      if (creates.length) {
+        const [createdProducts, branches] = await Promise.all([
+          transaction.product.findMany({ where: { tenantId, sku: { in: creates.map((product) => product.data.sku) } }, select: { id: true, featured: true, featuredOrder: true } }),
+          transaction.branch.findMany({ where: { tenantId }, select: { id: true } }),
+        ]);
+        await transaction.branchMenuItem.createMany({
+          data: createdProducts.flatMap((product) => branches.map((branch) => ({ tenantId, branchId: branch.id, productId: product.id, featured: product.featured, sortOrder: product.featuredOrder }))),
+          skipDuplicates: true,
+        });
+        const stations = await transaction.kitchenStation.findMany({ where: { tenantId, branchId: { in: branches.map((branch) => branch.id) }, active: true }, orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] });
+        const defaultByBranch = new Map(stations.map((station) => [station.branchId, station.id]));
+        await transaction.kitchenStationMenuItem.createMany({
+          data: createdProducts.flatMap((product) => branches.flatMap((branch) => defaultByBranch.has(branch.id) ? [{ tenantId, branchId: branch.id, stationId: defaultByBranch.get(branch.id)!, productId: product.id }] : [])),
+          skipDuplicates: true,
+        });
+      }
       return { created: creates.length, updated: updates.length, categoriesCreated, total: creates.length + updates.length };
     }, { timeout: 60_000 });
   } catch (error) {

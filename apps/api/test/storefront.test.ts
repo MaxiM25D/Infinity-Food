@@ -25,16 +25,18 @@ before(async () => {
       slug: alphaSlug,
       settings: { create: { description: "Catálogo Alpha", currency: "ARS" } },
       categories: { create: { name: "Ropa", slug: "ropa" } },
+      branches: { create: { slug: "principal", name: "Casa central", isPrimary: true } },
     },
-    include: { categories: true },
+    include: { categories: true, branches: true },
   });
   const beta = await database.tenant.create({
     data: {
       name: "Tienda pública Beta",
       slug: betaSlug,
       categories: { create: { name: "Hogar", slug: "hogar" } },
+      branches: { create: { slug: "principal", name: "Casa central", isPrimary: true } },
     },
-    include: { categories: true },
+    include: { categories: true, branches: true },
   });
 
   await database.tenant.create({
@@ -99,6 +101,7 @@ before(async () => {
   await database.order.create({
     data: {
       tenantId: alpha.id,
+      branchId: alpha.branches[0]!.id,
       customerId: customer.id,
       number: 1,
       customerEmail: customer.email,

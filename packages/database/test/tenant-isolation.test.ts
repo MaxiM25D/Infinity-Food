@@ -11,7 +11,7 @@ before(async () => {
     where: { slug: { in: ["infinityshop-seed", "norte-demo"] } },
   });
 
-  assert.equal(tenantCount, 2, "Ejecutá npm run db:seed antes de esta prueba");
+  assert.equal(tenantCount, 2, "Ejecutá pnpm db:seed antes de esta prueba");
 });
 
 after(async () => {
@@ -64,6 +64,45 @@ test("PostgreSQL rechaza relaciones que mezclan tenants", async () => {
       },
     }),
   );
+});
+
+test("PostgreSQL rechaza mover un pedido a una sucursal de otro tenant", async () => {
+  const [order, foreignBranch] = await Promise.all([
+    database.order.findFirstOrThrow({ where: { tenant: { slug: "infinityshop-seed" } } }),
+    database.branch.findFirstOrThrow({ where: { tenant: { slug: "norte-demo" } } }),
+  ]);
+
+  await assert.rejects(
+    database.order.update({
+      where: { id: order.id },
+      data: { branchId: foreignBranch.id },
+    }),
+  );
+});
+
+test("PostgreSQL rechaza platos vinculados a una sucursal de otro tenant", async () => {
+  const [tenant, product, foreignBranch] = await Promise.all([
+    database.tenant.findUniqueOrThrow({ where: { slug: "infinityshop-seed" } }),
+    database.product.findFirstOrThrow({ where: { tenant: { slug: "infinityshop-seed" } } }),
+    database.branch.findFirstOrThrow({ where: { tenant: { slug: "norte-demo" } } }),
+  ]);
+
+  await assert.rejects(
+    database.branchMenuItem.create({
+      data: { tenantId: tenant.id, branchId: foreignBranch.id, productId: product.id },
+    }),
+  );
+});
+
+test("PostgreSQL rechaza asignar una estación de otro tenant", async () => {
+  const [assignment, foreignStation] = await Promise.all([
+    database.kitchenStationMenuItem.findFirstOrThrow({ where: { product: { tenant: { slug: "infinityshop-seed" } } } }),
+    database.kitchenStation.findFirstOrThrow({ where: { tenant: { slug: "norte-demo" } } }),
+  ]);
+  await assert.rejects(database.kitchenStationMenuItem.update({
+    where: { tenantId_branchId_productId: { tenantId: assignment.tenantId, branchId: assignment.branchId, productId: assignment.productId } },
+    data: { stationId: foreignStation.id },
+  }));
 });
 
 test("email de cliente y número de pedido pueden repetirse en tiendas distintas", async () => {

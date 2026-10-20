@@ -31,7 +31,7 @@ async function run(): Promise<void> {
 
     const currentAmountInCents = Math.round((providerSubscription.auto_recurring?.transaction_amount ?? 0) * 100);
     const currentCurrency = providerSubscription.auto_recurring?.currency_id;
-    const expectedReason = `InfinityShop ${plan.name} - ${subscription.tenant.name}`;
+    const expectedReason = `InfinityFood ${plan.name} - ${subscription.tenant.name}`;
     if (
       currentAmountInCents !== plan.priceInCents
       || currentCurrency !== plan.currency

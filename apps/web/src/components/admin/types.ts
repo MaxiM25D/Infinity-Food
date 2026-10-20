@@ -1,9 +1,14 @@
-export type Role = "OWNER" | "ADMIN" | "STAFF";
+import type { TenantRole } from "@infinityfood/contracts";
+
+export type Role = TenantRole;
 
 export type Category = {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
+  displayOrder: number;
+  active: boolean;
   _count?: { products: number };
 };
 
@@ -22,6 +27,9 @@ export type Product = {
   tags: string[];
   featured: boolean;
   featuredOrder: number;
+  preparationTimeMinutes: number;
+  allergens: string[];
+  dietaryTags: string[];
   category: Pick<Category, "id" | "name" | "slug"> | null;
 };
 

@@ -1,4 +1,4 @@
-# Auditoría web de InfinityShop
+# Auditoría web de InfinityFood
 
 Fecha: 7 de septiembre de 2026.
 
@@ -8,7 +8,7 @@ Fecha: 7 de septiembre de 2026.
 - Vista móvil: 390 × 844, DPR 3.
 - CPU: desaceleración 4×.
 - Red: Fast 4G.
-- Página: home de InfinityShop.
+- Página: home de InfinityFood.
 
 ## Resultados
 
@@ -37,4 +37,4 @@ Respondieron correctamente: home, login, tienda demo, catálogo, producto, carri
 
 ## Pendiente después del deploy
 
-Repetir la auditoría sobre `https://infinityshop.com.ar` para incorporar la latencia real de Railway, Cloudflare, API, Cloudinary y datos CrUX cuando estén disponibles.
+Repetir la auditoría sobre `https://infinityfood.com.ar` para incorporar la latencia real de Railway, Cloudflare, API, Cloudinary y datos CrUX cuando estén disponibles.

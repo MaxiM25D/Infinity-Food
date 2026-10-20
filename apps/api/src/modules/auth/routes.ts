@@ -22,6 +22,7 @@ import {
   createSession,
   destroySession,
   requireSession,
+  selectSessionBranch,
   selectSessionTenant,
 } from "./session.js";
 import {
@@ -35,6 +36,7 @@ import {
   registerSchema,
   resetPasswordSchema,
   selectTenantSchema,
+  selectBranchSchema,
   updateProfileSchema,
   verifyEmailSchema,
 } from "./schemas.js";
@@ -118,6 +120,7 @@ authRouter.post("/register", authLimiter, async (request, response) => {
           name: input.storeName,
           slug: input.storeSlug,
           memberships: { create: { userId: user.id, role: "OWNER" } },
+          branches: { create: { slug: "principal", name: "Casa central", isPrimary: true } },
           subscription: {
             create: newTrialSubscription(
               selectedPlan.id,
@@ -126,6 +129,8 @@ authRouter.post("/register", authLimiter, async (request, response) => {
           },
         },
       });
+      const primaryBranch = await transaction.branch.findFirstOrThrow({ where: { tenantId: tenant.id, isPrimary: true }, select: { id: true } });
+      await transaction.kitchenStation.create({ data: { tenantId: tenant.id, branchId: primaryBranch.id, name: "Cocina", type: "KITCHEN" } });
 
       return { user, tenant };
     });
@@ -472,6 +477,16 @@ authRouter.post(
           role: invitation.role,
         },
       });
+      if (invitation.role === "STAFF") {
+        const branch = await transaction.branch.findFirst({
+          where: { tenantId: invitation.tenantId, status: "ACTIVE" },
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        });
+        if (!branch) throw new HttpError(409, "El restaurante no tiene una sucursal activa");
+        await transaction.membershipBranch.create({
+          data: { tenantId: invitation.tenantId, branchId: branch.id, userId: user.id, role: "STAFF" },
+        });
+      }
       await transaction.teamInvitation.update({
         where: { id: invitation.id },
         data: { acceptedAt: new Date() },
@@ -500,6 +515,7 @@ authRouter.get("/me", requireSession, (request, response) => {
   response.json({
     user: auth.user,
     tenant: { slug: auth.tenant.slug, name: auth.tenant.name },
+    branch: auth.branch,
     role: auth.role,
     supportAccess: auth.supportAccess,
   });
@@ -543,6 +559,7 @@ authRouter.post("/tenants", requireSession, async (request, response) => {
           name: input.name,
           slug: input.slug,
           memberships: { create: { userId: auth.user.id, role: "OWNER" } },
+          branches: { create: { slug: "principal", name: "Casa central", isPrimary: true } },
           subscription: {
             create: newTrialSubscription(
               selectedPlan.id,
@@ -551,9 +568,14 @@ authRouter.post("/tenants", requireSession, async (request, response) => {
           },
         },
       });
+      const primaryBranch = await transaction.branch.findFirstOrThrow({
+        where: { tenantId: created.id, isPrimary: true },
+        select: { id: true },
+      });
+      await transaction.kitchenStation.create({ data: { tenantId: created.id, branchId: primaryBranch.id, name: "Cocina", type: "KITCHEN" } });
       await transaction.authSession.update({
         where: { id: auth.sessionId },
-        data: { activeTenantId: created.id },
+        data: { activeTenantId: created.id, activeBranchId: primaryBranch.id },
       });
       await transaction.user.update({
         where: { id: auth.user.id },
@@ -594,4 +616,19 @@ authRouter.post("/select-tenant", requireSession, async (request, response) => {
     tenant: { slug: membership.tenant.slug, name: membership.tenant.name },
     role: membership.role,
   });
+});
+
+authRouter.post("/select-branch", requireSession, async (request, response) => {
+  const auth = getAuthContext(request);
+  if (auth.supportAccess)
+    throw new HttpError(403, "Salí del modo soporte antes de cambiar de sucursal");
+  const input = selectBranchSchema.parse(request.body);
+  const branch = await selectSessionBranch(
+    auth.sessionId,
+    auth.tenant.id,
+    auth.user.id,
+    auth.role,
+    input.branchId,
+  );
+  response.json({ branch });
 });

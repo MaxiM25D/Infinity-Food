@@ -52,12 +52,16 @@ before(async () => {
   });
   alphaCustomerId = alphaCustomer.id;
   betaCustomerId = betaCustomer.id;
+  const [alphaBranch, betaBranch] = await Promise.all([
+    database.branch.findFirstOrThrow({ where: { tenantId: alpha.id, isPrimary: true } }),
+    database.branch.findFirstOrThrow({ where: { tenantId: beta.id, isPrimary: true } }),
+  ]);
 
   await database.order.createMany({
     data: [
-      { tenantId: alpha.id, customerId: alphaCustomer.id, number: 1, customerEmail: alphaCustomer.email, customerName: "Ana Pérez", currency: "ARS", subtotalInCents: 12500, totalInCents: 12500, paymentStatus: "APPROVED" },
-      { tenantId: alpha.id, customerId: alphaCustomer.id, number: 2, customerEmail: alphaCustomer.email, customerName: "Ana Pérez", currency: "ARS", subtotalInCents: 8000, totalInCents: 8000, paymentStatus: "PENDING" },
-      { tenantId: beta.id, customerId: betaCustomer.id, number: 1, customerEmail: betaCustomer.email, customerName: "Ana Externa", currency: "ARS", subtotalInCents: 99900, totalInCents: 99900, paymentStatus: "APPROVED" },
+      { tenantId: alpha.id, branchId: alphaBranch.id, customerId: alphaCustomer.id, number: 1, customerEmail: alphaCustomer.email, customerName: "Ana Pérez", currency: "ARS", subtotalInCents: 12500, totalInCents: 12500, paymentStatus: "APPROVED" },
+      { tenantId: alpha.id, branchId: alphaBranch.id, customerId: alphaCustomer.id, number: 2, customerEmail: alphaCustomer.email, customerName: "Ana Pérez", currency: "ARS", subtotalInCents: 8000, totalInCents: 8000, paymentStatus: "PENDING" },
+      { tenantId: beta.id, branchId: betaBranch.id, customerId: betaCustomer.id, number: 1, customerEmail: betaCustomer.email, customerName: "Ana Externa", currency: "ARS", subtotalInCents: 99900, totalInCents: 99900, paymentStatus: "APPROVED" },
     ],
   });
 });

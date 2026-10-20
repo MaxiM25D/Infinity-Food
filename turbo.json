@@ -1,0 +1,38 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalEnv": ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_SITE_URL", "API_INTERNAL_URL", "PLATFORM_HOSTS"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "NODE_ENV",
+    "LOG_LEVEL",
+    "API_PUBLIC_URL",
+    "WEB_URL",
+    "MP_TOKEN_ENCRYPTION_KEY",
+    "SAAS_BILLING_PROVIDER",
+    "SAAS_MP_ACCESS_TOKEN",
+    "SAAS_MP_WEBHOOK_SECRET"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": ["coverage/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

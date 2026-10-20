@@ -29,7 +29,12 @@ async function createSuperAdmin(): Promise<void> {
     const tenant = await transaction.tenant.upsert({
       where: { slug: storeSlug },
       update: { status: "ACTIVE" },
-      create: { name: "Nébula Living", slug: storeSlug },
+      create: { name: "Nébula Living", slug: storeSlug, branches: { create: { slug: "principal", name: "Casa central", isPrimary: true } } },
+    });
+    await transaction.branch.upsert({
+      where: { tenantId_slug: { tenantId: tenant.id, slug: "principal" } },
+      update: { status: "ACTIVE", isPrimary: true },
+      create: { tenantId: tenant.id, slug: "principal", name: "Casa central", isPrimary: true },
     });
 
     await transaction.membership.upsert({

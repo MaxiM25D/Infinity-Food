@@ -26,14 +26,14 @@ export type PublicPlan = {
 };
 
 const featureLabels: Record<string, string> = {
-  CORE_CATALOG: "Catálogo, carrito y checkout",
+  CORE_CATALOG: "Carta QR y pedidos por mesa",
   TENANT_MP_OAUTH: "Mercado Pago directo a tu cuenta",
   BANK_TRANSFER: "Transferencias y comprobantes",
-  STOCK_MANAGEMENT: "Stock, pedidos y clientes",
-  ADVANCED_ANALYTICS: "Analytics avanzados",
-  COUPONS_PROMOTIONS: "Cupones y promociones",
-  PRODUCT_VARIANTS: "Variantes de productos",
-  ABANDONED_CART_RECOVERY: "Recuperación de carritos",
+  STOCK_MANAGEMENT: "Pedidos, POS y caja",
+  ADVANCED_ANALYTICS: "Reportes operativos avanzados",
+  COUPONS_PROMOTIONS: "Promociones y descuentos",
+  PRODUCT_VARIANTS: "Variantes de platos y bebidas",
+  ABANDONED_CART_RECOVERY: "Recuperación de pedidos online",
   CUSTOM_DOMAIN: "Dominio personalizado",
   ADVANCED_STORE_CUSTOMIZATION: "Personalización avanzada",
   AUTOMATIONS: "Automatizaciones",
@@ -46,22 +46,22 @@ export function publicPlanToMarketingPlan(plan: PublicPlan): MarketingPlan {
   return {
     code: plan.code,
     name: plan.name,
-    description: plan.description ?? "Todo lo que necesitás para vender y hacer crecer tu tienda.",
+    description: plan.description ?? "Todo lo que necesitás para operar y hacer crecer tu restaurante.",
     price,
     priceInCents: plan.priceInCents,
     currency: plan.currency,
     trialDays: plan.trialDays,
     capacity: `Hasta ${new Intl.NumberFormat("es-AR").format(plan.maxProducts)} productos · ${Math.max(0, plan.maxMembers - 1)} colaboradores`,
     featured: true,
-    features: features.length > 0 ? [...features, "Sin comisión de InfinityShop por venta"] : marketingPlans[0].features,
+    features: features.length > 0 ? [...features, "Sin comisión de InfinityFood por venta"] : marketingPlans[0].features,
   };
 }
 
 export const marketingPlans: MarketingPlan[] = [
   {
     code: "PRO",
-    name: "InfinityShop Pro",
-    description: "Todo lo que necesitás para vender y hacer crecer tu tienda.",
+    name: "InfinityFood Pro",
+    description: "Todo lo que necesitás para operar y hacer crecer tu restaurante.",
     price: "$50.000",
     priceInCents: 5_000_000,
     currency: "ARS",
@@ -69,15 +69,15 @@ export const marketingPlans: MarketingPlan[] = [
     capacity: "Hasta 1.000 productos · 5 colaboradores",
     featured: true,
     features: [
-      "Catálogo, carrito y checkout",
+      "Carta QR y pedidos por mesa",
       "Mercado Pago directo a tu cuenta",
-      "Stock, pedidos y clientes",
-      "Analytics avanzados",
-      "Cupones, promociones y variantes",
-      "Recuperación de carritos",
+      "Pedidos, comandas, KDS, POS y caja",
+      "Reservas y reportes operativos",
+      "Promociones y variantes",
+      "Canal de pedidos online",
       "Dominio y personalización avanzada",
       "Automatizaciones y soporte prioritario",
-      "Sin comisión de InfinityShop por venta",
+      "Sin comisión de InfinityFood por venta",
     ],
   },
 ];

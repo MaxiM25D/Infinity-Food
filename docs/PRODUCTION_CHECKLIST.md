@@ -1,18 +1,18 @@
-# Checklist de producción de InfinityShop
+# Checklist de producción de InfinityFood
 
 No pegues secretos en el repositorio. Cargalos en Railway y mantené los archivos `.env` solamente para desarrollo local.
 
 ## 1. Servicios y dominios
 
-- Web publicada con `NEXT_PUBLIC_SITE_URL=https://infinityshop.com.ar`.
+- Web publicada con `NEXT_PUBLIC_SITE_URL=https://infinityfood.com.ar`.
 - Web conectada a la API con `NEXT_PUBLIC_API_URL` y `API_INTERNAL_URL`.
-- `PLATFORM_HOSTS=infinityshop.com.ar,www.infinityshop.com.ar`.
+- `PLATFORM_HOSTS=infinityfood.com.ar,www.infinityfood.com.ar`.
 - API publicada con `API_PUBLIC_URL`, `WEB_URL` y `TRUST_PROXY_HOPS=1`.
 - Cloudflare en modo Full (strict), DNS correcto y redirección de `www` definida.
 
 ## 2. Datos y archivos
 
-- Ejecutar `npm run db:deploy` antes de habilitar tráfico.
+- Ejecutar `pnpm db:deploy` antes de habilitar tráfico.
 - Usar PostgreSQL con backups automáticos.
 - Usar `STORAGE_PROVIDER=cloudinary`; el disco local de Railway no debe guardar comprobantes o imágenes definitivas.
 - Confirmar que los comprobantes privados no tengan una URL pública permanente.
@@ -28,9 +28,10 @@ No pegues secretos en el repositorio. Cargalos en Railway y mantené los archivo
 ## 4. Verificación técnica
 
 - `GET /api/health` responde `ok` y `GET /api/ready` confirma la base de datos.
-- `npm run check` termina sin errores.
+- `GET /api/internal/metrics` exige el bearer token y el monitor puede recolectarlo.
+- `pnpm check` termina sin errores.
 - `npm audit --omit=dev` informa cero vulnerabilidades conocidas.
-- Probar Starter y Pro con cuentas independientes; Starter no debe acceder a endpoints PRO.
+- Probar el plan PRO y verificar que STARTER continúe archivado para datos históricos.
 - Probar checkout con pago exitoso, rechazado y correo temporalmente fallido.
 - Verificar en móvil: home, login, onboarding, catálogo, producto, carrito, checkout y panel.
 
@@ -39,4 +40,6 @@ No pegues secretos en el repositorio. Cargalos en Railway y mantené los archivo
 - Activar alertas de errores y disponibilidad para web, API y base de datos.
 - Revisar logs de API, cola de emails y webhooks diariamente durante los primeros clientes.
 - Definir responsable y procedimiento para restaurar un backup.
+- Ejecutar `restore-drill.ps1` y registrar fecha, hash, duración y resultado.
+- Mantener una sola réplica de API hasta validar Redis adapter y coordinación de jobs.
 - Ejecutar una auditoría de Core Web Vitals sobre la URL pública después del despliegue.

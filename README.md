@@ -1,37 +1,46 @@
-# InfinityShop
+# InfinityFood
 
-Plataforma ecommerce multi-tenant. El ecommerce original de LUNEK se conserva sin cambios en `legacy/lunek-app` y se usa solamente como referencia durante la migración.
+SaaS gastronómico multi-tenant en evolución incremental desde el core de InfinityShop. El núcleo de autenticación, aislamiento, suscripciones y pagos se conserva mientras los módulos comerciales migran al dominio de restaurantes.
+
+## Seguimiento
+
+El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 7 están completas; la siguiente etapa planificada es la operación gastronómica avanzada.
 
 ## Estructura
 
 - `apps/web`: frontend con Next.js, React, TypeScript y Tailwind CSS.
 - `apps/api`: API con Express y TypeScript.
 - `packages/database`: esquema multi-tenant de PostgreSQL con Prisma.
-- `packages/shared`: tipos y contratos compartidos.
-- `packages/config`: configuración común del monorepo.
+- `packages/contracts`: contratos mínimos compartidos entre web y API.
+- `turbo.json`: pipeline reproducible de build, tipos, lint y tests.
 - `legacy/lunek-app`: ecommerce original, conservado como referencia local y excluido del Git del monorepo.
 
 ## Requisitos
 
 - Node.js 22 LTS o superior.
-- PostgreSQL (el entorno Docker local usa el puerto `5433` para no interferir con instalaciones existentes).
+- pnpm 10.34.7 mediante Corepack.
+- PostgreSQL (el puerto se configura con `POSTGRES_PORT`).
 
 ## Inicio local
 
-1. Ejecutar `npm install` en la raíz.
+1. Ejecutar `corepack enable` y `pnpm install` en la raíz.
 2. Copiar `.env.example` como `.env` y configurar `DATABASE_URL`.
-3. Ejecutar `npm run db:up` para iniciar PostgreSQL con Docker.
-4. Ejecutar `npm run db:generate`.
-5. Ejecutar `npm run db:migrate -- --name nombre_de_la_migracion`.
-6. Ejecutar `npm run db:seed` para cargar las tiendas de demostración.
-7. Ejecutar `npm run db:test:isolation` para verificar el aislamiento multi-tenant.
-8. En terminales separadas, ejecutar `npm run dev:web` y `npm run dev:api`.
+3. Ejecutar `pnpm db:up` para iniciar PostgreSQL con Docker.
+4. Ejecutar `pnpm db:generate`.
+5. Ejecutar `pnpm db:migrate -- --name nombre_de_la_migracion`.
+6. Ejecutar `pnpm db:seed` para cargar los datos de demostración.
+7. Ejecutar `pnpm db:test:isolation` para verificar el aislamiento multi-tenant.
+8. Ejecutar `pnpm dev`; Turborepo inicia web y API en paralelo.
 
 Web: `http://localhost:3000`. API: `http://localhost:4000/api/health`.
 
+## Staging local reproducible
+
+Ejecutá `pnpm staging:up` y luego `pnpm staging:smoke`. La web queda en `http://localhost:3100`, la API en `http://localhost:4100` y Mailpit en `http://localhost:8025`. El procedimiento de backup, restauración, rollback e integraciones externas está en [docs/STAGING_RUNBOOK.md](docs/STAGING_RUNBOOK.md).
+
 ## Usuario administrador local
 
-Configurá `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` y `SUPERADMIN_STORE_SLUG` en `.env` y ejecutá `npm run db:superadmin`. El comando crea o actualiza una cuenta `SUPERADMIN` de plataforma, le asigna una tienda de prueba como `OWNER` y activa el plan Pro. La contraseña local nunca debe subirse a Git.
+Configurá `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` y `SUPERADMIN_STORE_SLUG` en `.env` y ejecutá `pnpm db:superadmin`. El comando crea o actualiza una cuenta `SUPERADMIN` de plataforma, le asigna un restaurante de prueba como `OWNER` y activa el plan Pro. La contraseña local nunca debe subirse a Git.
 
 ## Aislamiento multi-tenant
 
@@ -44,6 +53,7 @@ Las entidades comerciales incluyen `tenantId`, las restricciones únicas se comp
 - `POST /api/auth/logout`: invalida la sesión actual.
 - `GET /api/auth/me`: devuelve el usuario y la tienda activos.
 - `POST /api/auth/select-tenant`: cambia de tienda usando un slug y verificando la membresía.
+- `POST /api/auth/select-branch`: cambia la sucursal operativa y valida el acceso del usuario.
 - `GET|POST /api/auth/tenants`: lista las tiendas accesibles o crea una nueva con el usuario como `OWNER`.
 - `POST /api/auth/email-verification` y `POST /api/auth/verify-email`: generan y consumen enlaces de verificación.
 - `POST /api/auth/forgot-password` y `POST /api/auth/reset-password`: recuperan la contraseña y revocan las sesiones anteriores.
@@ -68,6 +78,36 @@ El panel web está disponible en `http://localhost:3000/admin` y consume rutas p
 - `GET|PATCH /store`: identidad, contacto, moneda y configuración visual de la tienda.
 
 Los roles `OWNER` y `ADMIN` pueden modificar datos. `STAFF` tiene acceso de solo lectura. El propietario invita colaboradores por email, puede cancelar invitaciones pendientes y el límite del plan contempla tanto miembros como invitaciones activas. Todas las consultas y mutaciones toman el tenant desde la sesión del servidor.
+
+## Sucursales y acceso operativo
+
+Cada restaurante tiene una sucursal principal. `OWNER` y `ADMIN` acceden globalmente; el personal recibe asignaciones explícitas por sucursal con roles `MANAGER`, `WAITER`, `KITCHEN`, `CASHIER` o `STAFF`. El panel incorpora un selector de sucursal y el contexto autenticado se actualiza en el servidor. El único identificador de sucursal aceptado desde el cliente corresponde a ese selector explícito y se valida contra el tenant, el estado y las asignaciones del usuario. La API está disponible en `/api/admin/branches`.
+
+## Carta gastronómica y QR
+
+Las categorías existentes funcionan como secciones y los productos como platos o bebidas. Cada sucursal define disponibilidad, precio opcional, destaque y orden mediante `BranchMenuItem`, sin duplicar el catálogo del restaurante. Los platos incluyen preparación estimada, alérgenos y etiquetas alimentarias.
+
+La administración está disponible en **Carta** dentro del panel. La ruta pública `/carta/:restaurantSlug/:branchSlug` muestra únicamente secciones, platos y sucursales activas. Desde el panel se puede previsualizar la carta y descargar un QR SVG propio de la sucursal.
+
+## Pedidos gastronómicos, comandas y KDS
+
+El panel **Salón** administra mesas, QR, estaciones y asignaciones de platos. El cliente pide desde `/mesa/:restaurantSlug/:branchSlug/:tableCode`; el mozo abre pedidos o agrega rondas desde la misma aplicación. Cada ronda se divide atómicamente en un ticket por estación y los reintentos usan UUID idempotentes para evitar duplicados.
+
+El KDS está disponible en `/kds`. Socket.IO notifica cambios, pero cada conexión y reconexión reconstruye el tablero desde PostgreSQL. El rol `KITCHEN` queda limitado a la sucursal y estación asignadas; responsables y administradores pueden supervisar toda la operación. Los detalles están en [docs/STAGE_3.md](docs/STAGE_3.md).
+
+## POS, pagos operativos y caja
+
+El panel **POS y caja** permite abrir un turno por sucursal, generar pedidos de mostrador o mesa, registrar cobros parciales en efectivo, tarjeta externa o Mercado Pago y realizar devoluciones explícitas. Cada cobro usa un UUID idempotente y el servidor bloquea el pedido antes de validar el saldo, por lo que los reintentos y cobros concurrentes no pueden exceder el total.
+
+## Reservas
+
+El panel **Reservas** administra horarios semanales, disponibilidad por capacidad, holds temporales, confirmaciones, cancelaciones y no-show en la zona horaria de cada sucursal. PostgreSQL impide solapamientos activos para una misma mesa incluso con solicitudes concurrentes. La experiencia pública está disponible en `/reservas/:restaurantSlug/:branchSlug` y los cambios operativos se propagan por Socket.IO. Ver [docs/STAGE_5.md](docs/STAGE_5.md).
+
+## Reportes y operación
+
+El panel **Reportes** presenta ventas por sucursal, canal, medio y franja; tiempos de cocina; rotación; ocupación; no-shows y reconciliación de caja. `/api/internal/metrics` ofrece métricas Prometheus protegidas. La carga, reconexión, E2E y restauración se validan con scripts reproducibles documentados en [docs/STAGE_6.md](docs/STAGE_6.md).
+
+Los cobros en efectivo crean exactamente un movimiento ligado al pago. El cierre persiste ventas netas por medio, efectivo esperado, efectivo declarado y diferencia. `OrderPayment`, `CashRegisterSession` y `CashMovement` pertenecen al dominio operativo del restaurante; `Subscription` y `BillingInvoice` continúan aislados para la facturación del SaaS. Los detalles están en [docs/STAGE_4.md](docs/STAGE_4.md).
 
 ## Tienda pública
 
@@ -99,14 +139,14 @@ En Railway se recomienda `EMAIL_PROVIDER=resend`, `EMAIL_FROM` y `RESEND_API_KEY
 
 ## Funciones SaaS
 
-Cada tenant tiene una suscripción `STARTER` o `PRO`. STARTER cuesta $50.000 ARS/mes e incluye 150 productos y un colaborador; PRO cuesta $70.000 ARS/mes e incluye 1.000 productos y cinco colaboradores. Los límites se verifican dentro de transacciones del servidor. Pedidos, checkout, pagos, seguridad y aislamiento no tienen límites por volumen del plan.
+Cada tenant nuevo utiliza el plan comercial `PRO`; `STARTER` se conserva archivado únicamente para compatibilidad histórica. Los límites se verifican dentro de transacciones del servidor. Pedidos, checkout, pagos, seguridad y aislamiento no tienen límites por volumen del plan.
 
-El onboarding inicia una prueba STARTER de 14 días. El OWNER consulta uso, elige plan, sincroniza el estado, programa la cancelación y revisa facturas desde **Plan y uso**. La facturación recurrente usa credenciales propias de InfinityShop, completamente separadas del OAuth de Mercado Pago que cada tenant utiliza para cobrar sus pedidos. `SUPERADMIN` conserva `/platform` para soporte operativo.
+El onboarding inicia una prueba PRO de siete días. El OWNER consulta uso, sincroniza el estado, programa la cancelación y revisa facturas desde **Plan y uso**. La facturación recurrente usa credenciales propias del SaaS, completamente separadas del OAuth de Mercado Pago que cada tenant utiliza para cobrar sus pedidos. `SUPERADMIN` conserva `/platform` para soporte operativo.
 
 ## Preparación para producción
 
 - `GET /api/health` comprueba el proceso y `GET /api/ready` verifica además PostgreSQL.
-- `npm run check` ejecuta tipos, lint, builds, pruebas de API y aislamiento multi-tenant.
+- `pnpm check` ejecuta tipos, lint, builds y todas las pruebas mediante Turborepo.
 - `Dockerfile.api` y `apps/web/Dockerfile` generan imágenes de producción con usuarios sin privilegios.
 - `railway.json` despliega migraciones antes de iniciar la API y configura el health check.
 - `scripts/backup-postgres.ps1` crea backups verificables con `pg_dump`.
@@ -115,7 +155,7 @@ El onboarding inicia una prueba STARTER de 14 días. El OWNER consulta uso, elig
 
 El panel **Crecimiento** reúne analytics por tienda, cupones, variantes, zonas y métodos de envío, dominios personalizados, reglas de notificación y recuperación de carritos. Los cupones, precios de variantes, stock y costos de envío se validan nuevamente en la transacción del checkout. Las funciones PRO se autorizan en la API usando las features del plan.
 
-Para un dominio personalizado, el OWNER registra el hostname y publica el TXT indicado en `_infinityshop.<dominio>`. Después de verificarlo, el proxy de Next.js resuelve el tenant sin aceptar un `tenantId` del navegador. En producción configurá `PLATFORM_HOSTS` con los dominios propios de InfinityShop y `API_INTERNAL_URL` con la URL alcanzable de la API desde el servidor web. El proveedor de hosting también debe tener el dominio y su certificado TLS asociados.
+Para un dominio personalizado, el OWNER registra el hostname y publica el TXT indicado en `_infinityshop.<dominio>`. Después de verificarlo, el proxy de Next.js resuelve el tenant sin aceptar un `tenantId` del navegador. En producción configurá `PLATFORM_HOSTS` con los dominios propios de InfinityFood y `API_INTERNAL_URL` con la URL alcanzable de la API desde el servidor web. El proveedor de hosting también debe tener el dominio y su certificado TLS asociados.
 
 Las automatizaciones guardan un historial de entrega y usan el proveedor configurado. Los envíos pendientes se procesan en segundo plano con reintentos; una falla queda diagnosticada sin impedir que se cree o cobre un pedido.
 

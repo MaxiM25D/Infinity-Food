@@ -12,49 +12,61 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_DB: infinityshop_test
+          POSTGRES_DB: infinityfood_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d infinityshop_test"
+          --health-cmd "pg_isready -U postgres -d infinityfood_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
       NODE_ENV: test
       LOG_LEVEL: error
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/infinityshop_test?schema=public
+      METRICS_TOKEN: ci-metrics-token
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/infinityfood_test?schema=public
       API_PUBLIC_URL: http://localhost:4000
       WEB_URL: http://localhost:3000
       MP_TOKEN_ENCRYPTION_KEY: ci-only-encryption-key-32-characters
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
     steps:
       - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run db:generate
-      - run: npm run db:deploy
-      - run: npm run db:seed
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:deploy
+      - run: pnpm db:seed
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm typecheck
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
       - name: Build
-        run: npm run build
+        run: pnpm build
       - name: API tests
-        run: npm run test:api
+        run: pnpm test:api
+      - name: Web tests
+        run: pnpm --filter @infinityshop/web test
       - name: Tenant isolation tests
-        run: npm run db:test:isolation
+        run: pnpm db:test:isolation
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Critical E2E
+        run: pnpm test:e2e
+        env:
+          CI: true
 
   docker-images:
     needs: validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: docker build -f Dockerfile.api -t infinityshop-api:ci .
-      - run: docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000/api -t infinityshop-web:ci .
+      - run: docker build -f Dockerfile.api -t infinityfood-api:ci .
+      - run: docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000/api -t infinityfood-web:ci .

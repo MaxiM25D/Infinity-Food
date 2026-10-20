@@ -409,7 +409,7 @@ function CreateStoreForm({
 
       <div className="mt-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><p className="text-sm font-semibold text-[#3b2d3e]">InfinityShop Pro</p><p className="mt-1 text-xs text-[#918495]">Cada tienda tiene su propia suscripción{selectedMarketingPlan && selectedMarketingPlan.trialDays > 0 ? ` y comienza con ${selectedMarketingPlan.trialDays} días gratis` : ""}.</p></div>
+          <div><p className="text-sm font-semibold text-[#3b2d3e]">InfinityFood Pro</p><p className="mt-1 text-xs text-[#918495]">Cada tienda tiene su propia suscripción{selectedMarketingPlan && selectedMarketingPlan.trialDays > 0 ? ` y comienza con ${selectedMarketingPlan.trialDays} días gratis` : ""}.</p></div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {marketingPlans.map((plan) => {

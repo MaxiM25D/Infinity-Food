@@ -9,10 +9,11 @@
     "start": "node dist/server.js",
     "billing:reconcile:prod": "node dist/scripts/reconcile-pro-plan.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/auth-tenants.test.ts test/admin-panel.test.ts test/storefront.test.ts test/checkout-orders.test.ts test/saas-platform.test.ts test/saas-billing.test.ts test/payments-security.test.ts test/payment-validation.test.ts test/customers.test.ts test/account-security.test.ts test/production-readiness.test.ts test/growth-features.test.ts"
+    "test": "tsx --test --test-concurrency=1 test/auth-tenants.test.ts test/admin-panel.test.ts test/storefront.test.ts test/checkout-orders.test.ts test/saas-platform.test.ts test/saas-billing.test.ts test/payments-security.test.ts test/payment-validation.test.ts test/customers.test.ts test/account-security.test.ts test/production-readiness.test.ts test/growth-features.test.ts test/branches.test.ts test/menu.test.ts test/dining-kds.test.ts test/pos-cash.test.ts test/reservations.test.ts test/reports-hardening.test.ts test/realtime-reconnection.test.ts"
   },
   "dependencies": {
-    "@infinityshop/database": "*",
+    "@infinityfood/contracts": "workspace:*",
+    "@infinityshop/database": "workspace:*",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
@@ -22,8 +23,10 @@
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "multer": "^2.3.0",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^10.1.7",
+    "qrcode": "^1.5.4",
     "read-excel-file": "^9.3.10",
+    "socket.io": "4.8.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -33,8 +36,10 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^26.1.2",
     "@types/nodemailer": "^8.0.1",
+    "@types/qrcode": "^1.5.6",
     "@types/supertest": "^6.0.3",
     "supertest": "^7.2.2",
+    "socket.io-client": "4.8.1",
     "tsx": "^4.23.9",
     "typescript": "^7.0.2"
   }

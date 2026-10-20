@@ -244,7 +244,7 @@ export function OnboardingFlow() {
             <div className="mt-8 hidden rounded-xl border border-[#e9e2eb] bg-white p-4 lg:block">
               <p className="text-xs font-semibold text-[#49225B]">Tu dirección</p>
               <p className="mt-2 break-all text-xs leading-5 text-[#8a7c8e]">
-                infinityshop.com.ar/tienda/{store.slug}
+                infinityfood.com.ar/tienda/{store.slug}
               </p>
             </div>
           </aside>

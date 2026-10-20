@@ -452,9 +452,9 @@ export function GrowthView({ onNavigate, role }: { onNavigate: (tab: "plan" | "p
             <li><strong>1. Creá una zona.</strong> Agrupá destinos con costo y plazo parecidos, por ejemplo “La Rioja capital” o “Resto del país”.</li>
             <li><strong>2. Indicá sus códigos postales.</strong> Un prefijo como <strong>53</strong> cubre todos los códigos que empiezan con 53; <strong>5300</strong> es más específico.</li>
             <li><strong>3. Calculá el precio final.</strong> Consultá la tarifa del transportista y, si corresponde, sumá embalaje y un margen operativo fijo.</li>
-            <li><strong>4. InfinityShop elige la mejor coincidencia.</strong> El checkout usa la zona más específica para el código postal del comprador.</li>
+            <li><strong>4. InfinityFood elige la mejor coincidencia.</strong> El checkout usa la zona más específica para el código postal del comprador.</li>
           </ol>
-          <p className="mt-3 rounded-xl bg-white/80 p-3 text-xs leading-5"><strong>Importante:</strong> una zona sin códigos postales funciona como respaldo para “Resto del país”. Solo se usa cuando no existe una zona más específica. La tarifa es manual y fija para cada zona: InfinityShop no consulta todavía precios en vivo. Revisala periódicamente y creá zonas diferentes cuando el costo cambie según la distancia.</p>
+          <p className="mt-3 rounded-xl bg-white/80 p-3 text-xs leading-5"><strong>Importante:</strong> una zona sin códigos postales funciona como respaldo para “Resto del país”. Solo se usa cuando no existe una zona más específica. La tarifa es manual y fija para cada zona: InfinityFood no consulta todavía precios en vivo. Revisala periódicamente y creá zonas diferentes cuando el costo cambie según la distancia.</p>
         </div>
         <div className="mt-5 rounded-2xl border border-[#ddcfe3] bg-[#fbf8fc] p-5">
           <div className="flex items-start gap-3"><span className="rounded-xl bg-white p-2.5 text-[#6E3482] shadow-sm"><Truck size={18} /></span><div><h4 className="font-semibold">Configuración rápida recomendada</h4><p className="mt-1 text-xs leading-5 text-[#807384]">Tomamos el código postal del local cuando está disponible y preparamos una tarifa local más otra para el resto del país.</p></div></div>
@@ -579,7 +579,7 @@ export function GrowthView({ onNavigate, role }: { onNavigate: (tab: "plan" | "p
             </form>
             <Tip title="Después de agregarlo">Creá en tu proveedor DNS el registro TXT que aparece debajo, copiando exactamente su nombre y valor. Luego tocá Verificar DNS. Esto comprueba la propiedad; no reemplaza la configuración de dirección web y HTTPS.</Tip>
             <Cards>
-              {data.domains.length === 0 && <EmptyState title="Todavía no vinculaste un dominio">Tu dirección habitual de InfinityShop sigue funcionando.</EmptyState>}
+              {data.domains.length === 0 && <EmptyState title="Todavía no vinculaste un dominio">Tu dirección habitual de InfinityFood sigue funcionando.</EmptyState>}
               {data.domains.map((domain) => (
                 <Card
                   key={domain.id}
@@ -793,7 +793,7 @@ function ShippingMethodForm({
       <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950" aria-live="polite">
         <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center"><div><p className="text-xs font-medium">Precio final que verá el comprador</p><p className="mt-1 text-2xl font-semibold tracking-tight">{formatShippingPesos(finalShippingPrice)}</p></div><p className="text-xs leading-5 text-emerald-800">{formatShippingPesos(carrierRateValue)} tarifa + {formatShippingPesos(packagingCostValue)} embalaje + {formatShippingPesos(operatingMarginValue)} gestión</p></div>
       </div>
-      <p className="mt-3 text-[11px] leading-5 text-[#918495]">El comprador verá un único precio de envío. Por ahora InfinityShop guarda el total final, no el desglose, y lo suma automáticamente al pedido.</p>
+      <p className="mt-3 text-[11px] leading-5 text-[#918495]">El comprador verá un único precio de envío. Por ahora InfinityFood guarda el total final, no el desglose, y lo suma automáticamente al pedido.</p>
     </div>
     <div className="grid gap-4 sm:grid-cols-2"><Input name="estimatedDaysMin" label="Plazo mínimo (días hábiles)" placeholder="2" type="number" min={1} defaultValue={defaults ? String(defaults.estimatedDaysMin ?? defaults.estimatedDays ?? 1) : undefined} /><Input name="estimatedDaysMax" label="Plazo máximo (días hábiles)" placeholder="4" type="number" min={1} defaultValue={defaults ? String(defaults.estimatedDaysMax ?? defaults.estimatedDays ?? 1) : undefined} /></div>
     <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[#e6dfe8] bg-[#fbf8fc] p-4">

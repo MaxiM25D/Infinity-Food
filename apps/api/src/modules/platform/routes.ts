@@ -8,7 +8,7 @@ import {
 import { database } from "../../database.js";
 import { HttpError } from "../../errors.js";
 import { updateProviderSubscription } from "../../services/saas-billing-provider.js";
-import { getAuthContext, requireSession } from "../auth/session.js";
+import { getAuthContext, requireSession, resolveBranchContext } from "../auth/session.js";
 import {
   planCodeSchema,
   startSupportAccessSchema,
@@ -29,7 +29,7 @@ function requirePlatformAdmin(
     if (getAuthContext(request).user.platformRole !== "SUPERADMIN") {
       throw new HttpError(
         403,
-        "Esta sección es exclusiva del equipo de InfinityShop",
+        "Esta sección es exclusiva del equipo de InfinityFood",
       );
     }
     next();
@@ -221,6 +221,7 @@ platformRouter.post("/tenants/:id/support-access", async (request, response) => 
   if (tenant.status !== "ACTIVE") {
     throw new HttpError(409, "Reactivá la tienda antes de ingresar como soporte");
   }
+  const branch = await resolveBranchContext(tenant.id, auth.user.id, "ADMIN");
 
   const startedAt = new Date();
   await database.$transaction([
@@ -228,6 +229,7 @@ platformRouter.post("/tenants/:id/support-access", async (request, response) => 
       where: { id: auth.sessionId },
       data: {
         activeTenantId: tenant.id,
+        activeBranchId: branch.id,
         supportOriginTenantId: auth.tenant.id,
         supportStartedAt: startedAt,
       },
@@ -266,6 +268,7 @@ platformRouter.post("/support-access/end", async (request, response) => {
   if (!origin) {
     throw new HttpError(409, "La tienda de origen ya no está disponible");
   }
+  const branch = await resolveBranchContext(origin.tenantId, auth.user.id, origin.role);
 
   const endedAt = new Date();
   await database.$transaction([
@@ -273,6 +276,7 @@ platformRouter.post("/support-access/end", async (request, response) => {
       where: { id: auth.sessionId },
       data: {
         activeTenantId: origin.tenantId,
+        activeBranchId: branch.id,
         supportOriginTenantId: null,
         supportStartedAt: null,
       },

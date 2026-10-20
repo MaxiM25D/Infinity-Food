@@ -10,7 +10,7 @@ import type { Dashboard } from "./types";
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 type Destination = "orders" | "products" | "categories" | "customers" | "store" | "growth";
 const orderLabels: Record<string, string> = { PENDING: "Pendiente", CONFIRMED: "Confirmado", PREPARING: "En preparación", SHIPPED: "Enviado", DELIVERED: "Entregado", READY_FOR_PICKUP: "Listo para retirar", PICKED_UP: "Retirado", CANCELLED: "Cancelado" };
-const paymentLabels: Record<string, string> = { PENDING: "Pendiente", APPROVED: "Aprobado", REJECTED: "Rechazado", CANCELLED: "Cancelado", REFUNDED: "Reembolsado" };
+const paymentLabels: Record<string, string> = { PENDING: "Pendiente", PARTIALLY_PAID: "Parcial", APPROVED: "Aprobado", REJECTED: "Rechazado", CANCELLED: "Cancelado", REFUNDED: "Reembolsado" };
 
 export function DashboardView({ onNavigate }: { onNavigate: (tab: Destination) => void }) {
   const [data, setData] = useState<Dashboard | null>(null);

@@ -42,6 +42,7 @@ export const loginSchema = z
   .strict();
 
 export const selectTenantSchema = z.object({ tenantSlug }).strict();
+export const selectBranchSchema = z.object({ branchId: z.string().trim().min(1).max(100) }).strict();
 
 export const createTenantSchema = z
   .object({

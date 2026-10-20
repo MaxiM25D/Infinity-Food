@@ -752,9 +752,12 @@ storefrontRouter.post("/:slug/orders", checkoutLimiter, async (request, response
             settings: true,
             mercadoPagoConnection: { select: { tenantId: true } },
             memberships: { where: { role: "OWNER" }, select: { user: { select: { emailVerifiedAt: true } } } },
+            branches: { where: { status: "ACTIVE" }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }], take: 1, select: { id: true } },
           },
         });
         if (!tenant) throw new HttpError(404, "Tienda no encontrada");
+        const branch = tenant.branches[0];
+        if (!branch) throw new HttpError(409, "El restaurante no tiene una sucursal activa");
         if (!tenant.memberships.some(({ user }) => Boolean(user.emailVerifiedAt))) {
           throw new HttpError(409, "La tienda debe verificar el email de su propietario antes de recibir pedidos");
         }
@@ -1043,6 +1046,7 @@ storefrontRouter.post("/:slug/orders", checkoutLimiter, async (request, response
     const order = await transaction.order.create({
           data: {
             tenantId: tenant.id,
+            branchId: branch.id,
             customerId: customer.id,
             number: (lastOrder?.number ?? 0) + 1,
             paymentMethod: input.paymentMethod,

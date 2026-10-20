@@ -1,4 +1,4 @@
-# Hoja de ruta visual de InfinityShop
+# Hoja de ruta visual de InfinityFood
 
 Vamos a mejorar una sección por vez, validarla localmente y desplegar únicamente los bloques aprobados.
 
@@ -18,7 +18,7 @@ Vamos a mejorar una sección por vez, validarla localmente y desplegar únicamen
 14. **Diseño y configuración de tienda y cuenta** — ✅ accesos directos a información y cobros, configuración guiada de tienda y Mi cuenta con perfil, verificación y cambio seguro de contraseña.
 15. **Equipo** — ✅ miembros e invitaciones explicados, permisos en lenguaje claro, cambios protegidos y gestión según el rol.
 16. **Planes y facturación SaaS** — ✅ estado de suscripción, límites, comparación Starter/Pro, facturas en español, sincronización y cancelación explicada.
-17. **Panel global de InfinityShop** — ✅ vista global explicada, métricas SaaS, filtros de tiendas, planes, suscripciones, confirmaciones administrativas, accesos directos y salud operativa de emails, cobros, dominios y pruebas.
+17. **Panel global de InfinityFood** — ✅ vista global explicada, métricas SaaS, filtros de tiendas, planes, suscripciones, confirmaciones administrativas, accesos directos y salud operativa de emails, cobros, dominios y pruebas.
 18. **Funciones de crecimiento** — ✅ interfaz guiada por herramienta: resultados, cupones, variantes, envíos, dominios, emails y carritos. Etiquetas, ayudas, ejemplos, estados vacíos, guardado sin perder datos y controles PRO verificados en backend.
 19. **Comunicaciones** — ✅ Resend por HTTPS, dominio verificado, cola persistente, reintentos, emails transaccionales y estados de entrega sin bloquear registros o pedidos.
 20. **Calidad para producción** — ✅ SEO dinámico, robots y sitemap; accesibilidad, rendimiento local móvil, smoke test, cabeceras de seguridad, rate limit de checkout, dependencias auditadas, configuración productiva y pruebas automáticas. Pendiente externo: repetir Core Web Vitals y smoke test sobre la URL desplegada.

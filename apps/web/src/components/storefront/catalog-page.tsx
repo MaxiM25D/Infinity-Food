@@ -281,7 +281,7 @@ export function StorefrontError({ message }: { message: string }) {
           className="mt-7 inline-block rounded-full bg-stone-950 px-6 py-3 text-sm font-semibold text-white"
           href="/"
         >
-          Volver a InfinityShop
+          Volver a InfinityFood
         </Link>
       </div>
     </main>

@@ -78,7 +78,7 @@ managementRouter.get("/catalog", async (request, response) => {
 });
 
 managementRouter.get("/overview", async (request, response) => {
-  const { tenant } = getAuthContext(request);
+  const { tenant, branch } = getAuthContext(request);
   const now = new Date();
   const fallbackFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const fallbackTo = new Date(fallbackFrom.getTime() + 24 * 60 * 60 * 1000);
@@ -89,6 +89,7 @@ managementRouter.get("/overview", async (request, response) => {
 
   const saleWhere = {
     tenantId: tenant.id,
+    branchId: branch.id,
     channel: "LOCAL" as const,
     status: { not: "CANCELLED" as const },
     paymentStatus: "APPROVED" as const,
@@ -98,7 +99,7 @@ managementRouter.get("/overview", async (request, response) => {
     database.order.aggregate({ where: saleWhere, _count: true, _sum: { totalInCents: true } }),
     database.order.groupBy({ by: ["paymentMethod"], where: saleWhere, _count: true, _sum: { totalInCents: true } }),
     database.order.findMany({
-      where: { tenantId: tenant.id, channel: "LOCAL" }, orderBy: { createdAt: "desc" }, take: 12,
+      where: { tenantId: tenant.id, branchId: branch.id, channel: "LOCAL" }, orderBy: { createdAt: "desc" }, take: 12,
       select: { id: true, number: true, customerName: true, totalInCents: true, paymentMethod: true, status: true, createdAt: true, _count: { select: { items: true } } },
     }),
     database.stockMovement.findMany({
@@ -169,7 +170,7 @@ managementRouter.post("/sales", async (request, response) => {
 
     const created = await transaction.order.create({
       data: {
-        tenantId: auth.tenant.id, customerId, number: (last?.number ?? 0) + 1, channel: "LOCAL", soldByUserId: auth.user.id, localSaleKey: input.operationId ?? null,
+        tenantId: auth.tenant.id, branchId: auth.branch.id, customerId, number: (last?.number ?? 0) + 1, channel: "LOCAL", soldByUserId: auth.user.id, localSaleKey: input.operationId ?? null,
         status: "DELIVERED", paymentStatus: "APPROVED", paymentMethod: input.paymentMethod, stockStatus: "COMMITTED",
         customerName, customerEmail: input.customer?.email?.toLowerCase() ?? "", customerPhone: input.customer?.phone || null,
         notes: input.notes || null, currency: settings?.currency ?? "ARS", subtotalInCents, discountInCents, totalInCents: subtotalInCents - discountInCents,
@@ -199,20 +200,20 @@ managementRouter.post("/sales", async (request, response) => {
     return created;
   });
 
-  response.status(201).json(await saleReceipt(auth.tenant.id, order.id));
+  response.status(201).json(await saleReceipt(auth.tenant.id, auth.branch.id, order.id));
 });
 
 managementRouter.get("/sales/:id", async (request, response) => {
-  const { tenant } = getAuthContext(request);
-  response.json(await saleReceipt(tenant.id, idSchema.parse(request.params.id)));
+  const { tenant, branch } = getAuthContext(request);
+  response.json(await saleReceipt(tenant.id, branch.id, idSchema.parse(request.params.id)));
 });
 
 managementRouter.post("/sales/:id/cancel", canManageInventory, async (request, response) => {
   const auth = getAuthContext(request);
   const id = idSchema.parse(request.params.id);
   await database.$transaction(async (transaction) => {
-    await transaction.$queryRaw`SELECT "id" FROM "Order" WHERE "tenantId" = ${auth.tenant.id} AND "id" = ${id} FOR UPDATE`;
-    const sale = await transaction.order.findFirst({ where: { id, tenantId: auth.tenant.id, channel: "LOCAL" }, include: { items: true } });
+    await transaction.$queryRaw`SELECT "id" FROM "Order" WHERE "tenantId" = ${auth.tenant.id} AND "branchId" = ${auth.branch.id} AND "id" = ${id} FOR UPDATE`;
+    const sale = await transaction.order.findFirst({ where: { id, tenantId: auth.tenant.id, branchId: auth.branch.id, channel: "LOCAL" }, include: { items: true } });
     if (!sale) throw new HttpError(404, "No encontramos la venta local");
     if (sale.status === "CANCELLED") throw new HttpError(409, "La venta ya fue anulada");
     for (const item of sale.items) {
@@ -223,9 +224,9 @@ managementRouter.post("/sales/:id/cancel", canManageInventory, async (request, r
       await transaction.stockMovement.create({ data: { tenantId: auth.tenant.id, productId: item.productId, variantId: item.variantId, orderId: sale.id, changedByUserId: auth.user.id, type: "LOCAL_SALE_CANCELLED", quantityDelta: item.quantity, stockAfter: changed.stock, note: `Anulación de venta local #${sale.number}` } });
     }
     await transaction.order.update({ where: { tenantId_id: { tenantId: auth.tenant.id, id } }, data: { status: "CANCELLED", paymentStatus: "REFUNDED", stockStatus: "RELEASED" } });
-    await transaction.orderStatusHistory.create({ data: { tenantId: auth.tenant.id, orderId: id, status: "CANCELLED", changedByUserId: auth.user.id, note: "Venta local anulada; el reintegro de dinero se gestiona por fuera de InfinityShop" } });
+    await transaction.orderStatusHistory.create({ data: { tenantId: auth.tenant.id, orderId: id, status: "CANCELLED", changedByUserId: auth.user.id, note: "Venta local anulada; el reintegro de dinero se gestiona por fuera de InfinityFood" } });
   });
-  response.json(await saleReceipt(auth.tenant.id, id));
+  response.json(await saleReceipt(auth.tenant.id, auth.branch.id, id));
 });
 
 managementRouter.post("/stock-adjustments", canManageInventory, async (request, response) => {
@@ -250,10 +251,10 @@ managementRouter.post("/stock-adjustments", canManageInventory, async (request, 
   response.status(201).json({ movement });
 });
 
-async function saleReceipt(tenantId: string, orderId: string) {
+async function saleReceipt(tenantId: string, branchId: string, orderId: string) {
   const [sale, tenant] = await Promise.all([
     database.order.findFirst({
-      where: { id: orderId, tenantId, channel: "LOCAL" },
+      where: { id: orderId, tenantId, branchId, channel: "LOCAL" },
       include: { items: true, soldBy: { select: { firstName: true, lastName: true } } },
     }),
     database.tenant.findUnique({ where: { id: tenantId }, include: { settings: { select: { logoUrl: true, contactEmail: true, whatsapp: true } } } }),
