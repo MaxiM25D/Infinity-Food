@@ -4,7 +4,7 @@ SaaS gastronómico multi-tenant en evolución incremental desde el core de Infin
 
 ## Seguimiento
 
-El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 8 están completas; la siguiente etapa planificada es inventario y costos.
+El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 10 están completas; la siguiente etapa planificada es pagos y fiscalidad.
 
 ## Estructura
 
@@ -107,7 +107,7 @@ El panel **Inventario** administra ingredientes, recetas, depósitos, mermas, pr
 
 ## Reservas
 
-El panel **Reservas** administra horarios semanales, disponibilidad por capacidad, holds temporales, confirmaciones, cancelaciones y no-show en la zona horaria de cada sucursal. PostgreSQL impide solapamientos activos para una misma mesa incluso con solicitudes concurrentes. La experiencia pública está disponible en `/reservas/:restaurantSlug/:branchSlug` y los cambios operativos se propagan por Socket.IO. Ver [docs/STAGE_5.md](docs/STAGE_5.md).
+El panel **Reservas** administra horarios, excepciones, señas, lista de espera, reasignaciones, confirmaciones, recordatorios, cancelaciones y no-show por sucursal. PostgreSQL impide solapamientos activos para una misma mesa incluso con solicitudes concurrentes. La experiencia pública en `/reservas/:restaurantSlug/:branchSlug` permite reservar, retomar desde un enlace seguro, cancelar y anotarse en espera. El historial se integra en **Clientes** con segmentación básica. Ver [docs/STAGE_5.md](docs/STAGE_5.md) y [docs/STAGE_10.md](docs/STAGE_10.md).
 
 ## Reportes y operación
 

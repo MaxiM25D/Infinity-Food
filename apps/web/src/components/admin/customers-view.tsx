@@ -123,7 +123,7 @@ export function CustomersView() {
                 <tr>
                   <th className="px-5 py-3">Cliente</th>
                   <th className="px-5 py-3">Contacto</th>
-                  <th className="px-5 py-3">Pedidos</th>
+                  <th className="px-5 py-3">Actividad</th>
                   <th className="px-5 py-3 text-right">Compras aprobadas</th>
                 </tr>
               </thead>
@@ -134,13 +134,14 @@ export function CustomersView() {
                       <strong>
                         {customer.firstName} {customer.lastName}
                       </strong>
+                      <p className="mt-1 text-xs font-semibold text-[#6E3482]">{segmentLabel[customer.segment]}</p>
                       <p className="text-xs text-stone-400">Desde {new Date(customer.createdAt).toLocaleDateString("es-AR")}</p>
                     </td>
                     <td className="px-5 py-4">
                       {customer.email}
                       <p className="text-xs text-stone-400">{customer.phone ?? "Sin teléfono"}</p>
                     </td>
-                    <td className="px-5 py-4">{customer._count.orders}</td>
+                    <td className="px-5 py-4">{customer._count.orders} pedidos<p className="text-xs text-stone-400">{customer._count.reservations} reservas · {customer.noShows} no-show</p></td>
                     <td className="px-5 py-4 text-right"><strong>{money(customer.approvedSpentInCents)}</strong><button className="ml-4 rounded-lg border border-[#e6dfe8] px-3 py-2 text-xs font-semibold text-[#6E3482]" onClick={() => void open(customer.id)} type="button">Ver cliente</button></td>
                   </tr>
                 ))}
@@ -191,10 +192,16 @@ function CustomerDrawer({ customer, onClose }: { customer: CustomerDetail; onClo
           </button>
         </header>
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-3">
+        <section className="mt-6 grid gap-3 sm:grid-cols-4">
           <Stat label="Pedidos" value={String(customer.stats.orders)} />
           <Stat label="Pagados" value={String(customer.stats.approvedOrders)} />
+          <Stat label="Reservas / no-show" value={`${customer.stats.reservations} / ${customer.stats.noShows}`} />
           <Stat label="Total aprobado" value={money(customer.stats.approvedSpentInCents)} />
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-[#e6dfe8] bg-white p-5">
+          <h3 className="mb-4 font-semibold">Historial de reservas · {segmentLabel[customer.segment]}</h3>
+          {customer.reservations.length === 0 ? <p className="text-sm text-stone-400">Todavía no tiene reservas vinculadas.</p> : <div className="divide-y divide-stone-200">{customer.reservations.map((reservation) => <div className="flex items-center justify-between gap-4 py-4" key={reservation.id}><div><strong className="text-sm">{reservation.branch.name} · {reservation.table.name}</strong><p className="text-xs text-stone-400">{new Date(reservation.startsAt).toLocaleString("es-AR")} · {reservation.partySize} personas</p></div><span className="text-xs font-semibold text-[#6E3482]">{reservation.status}</span></div>)}</div>}
         </section>
 
         <section className="mt-6 rounded-2xl border border-[#e6dfe8] bg-white p-5">
@@ -256,3 +263,10 @@ function Detail({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+const segmentLabel: Record<CustomerSummary["segment"], string> = {
+  NEW: "Nuevo",
+  REGULAR: "Frecuente",
+  VIP: "VIP",
+  AT_RISK: "Riesgo por no-show",
+};

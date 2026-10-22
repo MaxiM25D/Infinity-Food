@@ -16,7 +16,7 @@ Desde la Etapa 8, cada cierre incluye en `docs/STAGE_N.md` un mapa de archivos, 
 | 7 — Estabilización y piloto | COMPLETADA | Seguridad, baseline versionable, branding, E2E operativo y staging reproducible. |
 | 8 — Operación gastronómica avanzada | COMPLETADA | Modificadores, propinas, división de cuenta, mesas e impresión. |
 | 9 — Inventario y costos | COMPLETADA | Stock por sucursal, recetas, ingredientes, compras y proveedores. |
-| 10 — Reservas y fidelización | PENDIENTE | Recordatorios, señas, lista de espera, CRM y comunicación. |
+| 10 — Reservas y fidelización | COMPLETADA | Recordatorios, señas, lista de espera, CRM y comunicación. |
 | 11 — Pagos y fiscalidad | PENDIENTE | Mercado Pago POS automático, conciliación externa y ARCA/facturación. |
 | 12 — Escala horizontal | PENDIENTE | Redis, workers, multirréplica, agregados y observabilidad centralizada. |
 | 13 — Lanzamiento controlado | PENDIENTE | Piloto real, soporte, SLO, runbooks y salida comercial gradual. |
@@ -57,11 +57,13 @@ La implementación, las rutas y la evidencia reproducible están en [STAGE_9.md]
 
 ## Etapa 10 — Reservas y fidelización
 
-- Recordatorios y confirmaciones automáticas.
-- Señas y políticas de cancelación.
-- Lista de espera y reasignación de mesas.
-- Excepciones de agenda y feriados.
-- Historial unificado del cliente y segmentación básica.
+- [x] Recordatorios y confirmaciones automáticas persistidas e idempotentes.
+- [x] Señas por importe fijo o persona y políticas de cancelación.
+- [x] Lista de espera, ofertas con vencimiento y reasignación de mesas.
+- [x] Excepciones de agenda, horarios especiales y feriados.
+- [x] Historial unificado del cliente y segmentación básica.
+
+La implementación, rutas, decisiones y validación reproducible están en [STAGE_10.md](STAGE_10.md).
 
 ## Etapa 11 — Pagos y fiscalidad
 

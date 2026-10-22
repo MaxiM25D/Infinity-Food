@@ -226,6 +226,11 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
     id: held.reservation.id, status: "CONFIRMED",
   }));
 
+  await page.goto("/admin?tab=reservations");
+  await expect(page.getByRole("heading", { level: 2, name: "Reservas", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Política de reservas y señas/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lista de espera" })).toBeVisible();
+
   await page.goto(`/reservas/${tenantSlug}/${branchSlug}`);
   await expect(page.getByRole("heading", { name: "Reservá tu mesa" })).toBeVisible();
   await expect(page.getByText("Casa central")).toBeVisible();

@@ -3,8 +3,10 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Prisma, ReservationStatus } from "@infinityshop/database";
 
 import { database } from "../database.js";
+import { environment } from "../config.js";
 import { HttpError } from "../errors.js";
 import { emitReservationUpdate } from "./realtime.js";
+import { dispatchTenantNotification } from "./notifications.js";
 
 const ACTIVE_STATUSES: ReservationStatus[] = ["HOLD", "CONFIRMED", "SEATED"];
 const DEFAULT_OPEN_MINUTES = 12 * 60;
@@ -64,9 +66,12 @@ function isOverlapConflict(error: unknown): boolean {
 }
 
 async function branchSchedule(tenantId: string, branchId: string, date: string) {
-  const schedule = await database.reservationSchedule.findUnique({
-    where: { tenantId_branchId_weekday: { tenantId, branchId, weekday: weekday(date) } },
-  });
+  const [exception, schedule] = await Promise.all([
+    database.reservationScheduleException.findUnique({ where: { tenantId_branchId_date: { tenantId, branchId, date: new Date(`${date}T00:00:00.000Z`) } } }),
+    database.reservationSchedule.findUnique({ where: { tenantId_branchId_weekday: { tenantId, branchId, weekday: weekday(date) } } }),
+  ]);
+  if (exception?.closed) return null;
+  if (exception && exception.opensAtMinutes != null && exception.closesAtMinutes != null) return { opensAtMinutes: exception.opensAtMinutes, closesAtMinutes: exception.closesAtMinutes, active: true };
   if (schedule && !schedule.active) return null;
   return schedule ?? { opensAtMinutes: DEFAULT_OPEN_MINUTES, closesAtMinutes: DEFAULT_CLOSE_MINUTES, active: true };
 }
@@ -86,6 +91,7 @@ export async function expireReservationHolds(now = new Date()): Promise<number> 
       });
       if (!updated.count) return false;
       await transaction.reservationAudit.create({ data: { tenantId: reservation.tenantId, branchId: reservation.branchId, reservationId: reservation.id, fromStatus: "HOLD", toStatus: "EXPIRED", reason: "Hold vencido automáticamente" } });
+      await transaction.reservationWaitlistEntry.updateMany({ where: { tenantId: reservation.tenantId, branchId: reservation.branchId, reservationId: reservation.id, status: "OFFERED" }, data: { status: "EXPIRED" } });
       return true;
     });
     if (changed) {
@@ -151,7 +157,7 @@ export async function createReservationHold(input: {
   holdMinutes?: number; customerName: string; customerPhone: string; customerEmail?: string | null; notes?: string | null;
   clientRequestId: string; createdByUserId?: string;
 }) {
-  const existing = await database.reservation.findUnique({ where: { tenantId_clientRequestId: { tenantId: input.tenantId, clientRequestId: input.clientRequestId } }, include: { table: true } });
+  const existing = await database.reservation.findUnique({ where: { tenantId_clientRequestId: { tenantId: input.tenantId, clientRequestId: input.clientRequestId } }, include: { table: true, deposits: true } });
   if (existing) return { reservation: existing, manageToken: null, created: false };
   const [hour, minute] = input.time.split(":").map(Number);
   const startMinutes = hour! * 60 + minute!;
@@ -166,6 +172,7 @@ export async function createReservationHold(input: {
   const endsAt = endMinutes < 1440 ? localDateTimeToUtc(input.date, endMinutes, input.timezone) : localDateTimeToUtc(nextLocalDate(input.date), endMinutes - 1440, input.timezone);
   if (startsAt <= new Date()) throw new HttpError(409, "El horario de la reserva ya pasó");
   const holdExpiresAt = new Date(Date.now() + (input.holdMinutes ?? DEFAULT_HOLD_MINUTES) * 60_000);
+  const policy = await database.reservationPolicy.findUnique({ where: { tenantId_branchId: { tenantId: input.tenantId, branchId: input.branchId } } });
   const tables = await database.restaurantTable.findMany({
     where: { tenantId: input.tenantId, branchId: input.branchId, status: "AVAILABLE", minCapacity: { lte: input.partySize }, maxCapacity: { gte: input.partySize } },
     orderBy: [{ maxCapacity: "asc" }, { name: "asc" }],
@@ -174,21 +181,38 @@ export async function createReservationHold(input: {
     const manageToken = randomBytes(32).toString("base64url");
     try {
       const reservation = await database.$transaction(async (transaction) => {
+        let customerId: string | undefined;
+        if (input.customerEmail) {
+          const names = input.customerName.trim().split(/\s+/);
+          const customer = await transaction.customer.upsert({
+            where: { tenantId_email: { tenantId: input.tenantId, email: input.customerEmail.toLowerCase() } },
+            update: { phone: input.customerPhone },
+            create: { tenantId: input.tenantId, email: input.customerEmail.toLowerCase(), firstName: names[0] ?? input.customerName, lastName: names.slice(1).join(" ") || "Reserva", phone: input.customerPhone },
+          });
+          customerId = customer.id;
+        }
         const created = await transaction.reservation.create({ data: {
           tenantId: input.tenantId, branchId: input.branchId, tableId: table.id, partySize: input.partySize,
           customerName: input.customerName, customerPhone: input.customerPhone, customerEmail: input.customerEmail,
           notes: input.notes, startsAt, endsAt, holdExpiresAt, clientRequestId: input.clientRequestId,
-          manageTokenHash: tokenHash(manageToken), createdByUserId: input.createdByUserId,
+          manageTokenHash: tokenHash(manageToken), createdByUserId: input.createdByUserId, customerId,
         } });
+        if (policy?.depositRequired) {
+          await transaction.reservationDeposit.create({ data: {
+            tenantId: input.tenantId, branchId: input.branchId, reservationId: created.id,
+            amountInCents: policy.depositType === "PER_PERSON" ? policy.depositAmountInCents * input.partySize : policy.depositAmountInCents,
+            clientRequestId: `required:${created.id}`,
+          } });
+        }
         await transaction.reservationAudit.create({ data: { tenantId: input.tenantId, branchId: input.branchId, reservationId: created.id, toStatus: "HOLD", actorUserId: input.createdByUserId, reason: "Disponibilidad retenida" } });
-        return transaction.reservation.findUniqueOrThrow({ where: { id: created.id }, include: { table: true } });
+        return transaction.reservation.findUniqueOrThrow({ where: { id: created.id }, include: { table: true, deposits: true } });
       });
       scheduleHoldExpiry(reservation.id, holdExpiresAt);
       return { reservation, manageToken, created: true };
     } catch (error) {
       if (isOverlapConflict(error)) continue;
       if ((error as { code?: string }).code === "P2002") {
-        const repeated = await database.reservation.findUnique({ where: { tenantId_clientRequestId: { tenantId: input.tenantId, clientRequestId: input.clientRequestId } }, include: { table: true } });
+        const repeated = await database.reservation.findUnique({ where: { tenantId_clientRequestId: { tenantId: input.tenantId, clientRequestId: input.clientRequestId } }, include: { table: true, deposits: true } });
         if (repeated) return { reservation: repeated, manageToken: null, created: false };
       }
       throw error;
@@ -198,7 +222,7 @@ export async function createReservationHold(input: {
 }
 
 export async function reservationByToken(tenantId: string, branchId: string, id: string, token: string) {
-  return database.reservation.findFirst({ where: { id, tenantId, branchId, manageTokenHash: tokenHash(token) }, include: { table: true, audits: { orderBy: { createdAt: "asc" } } } });
+  return database.reservation.findFirst({ where: { id, tenantId, branchId, manageTokenHash: tokenHash(token) }, include: { table: true, deposits: true, audits: { orderBy: { createdAt: "asc" } } } });
 }
 
 export async function transitionReservation(input: {
@@ -216,6 +240,10 @@ export async function transitionReservation(input: {
     await expireReservationHolds();
     throw new HttpError(409, "El hold venció; consultá disponibilidad nuevamente");
   }
+  if (input.toStatus === "CONFIRMED") {
+    const pendingDeposit = await database.reservationDeposit.findFirst({ where: { tenantId: input.tenantId, branchId: input.branchId, reservationId: current.id, status: "PENDING" } });
+    if (pendingDeposit) throw new HttpError(409, `La reserva requiere una seña de ${pendingDeposit.amountInCents} centavos antes de confirmarse`);
+  }
   if (!allowed[current.status]?.includes(input.toStatus)) throw new HttpError(409, `No se puede pasar una reserva ${current.status} a ${input.toStatus}`);
   const now = new Date();
   const timestamp: Prisma.ReservationUpdateManyMutationInput = input.toStatus === "CONFIRMED" ? { confirmedAt: now, holdExpiresAt: null }
@@ -223,12 +251,31 @@ export async function transitionReservation(input: {
       : input.toStatus === "NO_SHOW" ? { noShowAt: now }
         : input.toStatus === "SEATED" ? { seatedAt: now }
           : { completedAt: now };
-  return database.$transaction(async (transaction) => {
+  const reservation = await database.$transaction(async (transaction) => {
     const updated = await transaction.reservation.updateMany({ where: { id: current.id, tenantId: input.tenantId, branchId: input.branchId, status: current.status }, data: { status: input.toStatus, ...timestamp } });
     if (!updated.count) throw new HttpError(409, "La reserva cambió mientras se procesaba la solicitud");
     await transaction.reservationAudit.create({ data: { tenantId: input.tenantId, branchId: input.branchId, reservationId: current.id, fromStatus: current.status, toStatus: input.toStatus, actorUserId: input.actorUserId, reason: input.reason } });
-    return transaction.reservation.findUniqueOrThrow({ where: { id: current.id }, include: { table: true, audits: { orderBy: { createdAt: "asc" } } } });
+    if (input.toStatus === "CONFIRMED") await transaction.reservationWaitlistEntry.updateMany({ where: { tenantId: input.tenantId, branchId: input.branchId, reservationId: current.id, status: "OFFERED" }, data: { status: "BOOKED" } });
+    if (input.toStatus === "CANCELLED") await transaction.reservationWaitlistEntry.updateMany({ where: { tenantId: input.tenantId, branchId: input.branchId, reservationId: current.id, status: "OFFERED" }, data: { status: "CANCELLED" } });
+    if (input.toStatus === "CANCELLED") {
+      const policy = await transaction.reservationPolicy.findUnique({ where: { tenantId_branchId: { tenantId: input.tenantId, branchId: input.branchId } } });
+      const refundable = current.startsAt.getTime() - now.getTime() >= (policy?.cancellationCutoffHours ?? 2) * 3_600_000;
+      await transaction.reservationDeposit.updateMany({ where: { tenantId: input.tenantId, branchId: input.branchId, reservationId: current.id, status: "PAID" }, data: { status: refundable ? "REFUNDED" : "FORFEITED", resolvedAt: now } });
+    }
+    return transaction.reservation.findUniqueOrThrow({ where: { id: current.id }, include: { table: true, deposits: true, audits: { orderBy: { createdAt: "asc" } }, branch: { select: { slug: true, tenant: { select: { slug: true } } } } } });
   });
+  if (input.toStatus === "CONFIRMED" && reservation.customerEmail) {
+    const url = new URL(`/reservas/${reservation.branch.tenant.slug}/${reservation.branch.slug}`, environment.WEB_URL);
+    if (input.manageToken) {
+      url.searchParams.set("reservation", reservation.id);
+      url.searchParams.set("token", input.manageToken);
+    }
+    const policy = await database.reservationPolicy.findUnique({ where: { tenantId_branchId: { tenantId: input.tenantId, branchId: input.branchId } } });
+    await dispatchTenantNotification({ tenantId: input.tenantId, reservationId: reservation.id, event: "RESERVATION_CONFIRMED", recipient: reservation.customerEmail, actionUrl: url.toString() });
+    const reminderAt = new Date(reservation.startsAt.getTime() - (policy?.reminderHours ?? 24) * 3_600_000);
+    if (reminderAt > new Date()) await dispatchTenantNotification({ tenantId: input.tenantId, reservationId: reservation.id, event: "RESERVATION_REMINDER", recipient: reservation.customerEmail, actionUrl: url.toString(), nextAttemptAt: reminderAt });
+  }
+  return reservation;
 }
 
 export const reservationDefaults = { durationMinutes: DEFAULT_DURATION_MINUTES, holdMinutes: DEFAULT_HOLD_MINUTES, slotMinutes: DEFAULT_SLOT_MINUTES };

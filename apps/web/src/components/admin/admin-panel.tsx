@@ -111,7 +111,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
       { id: "management", label: "Gestión", description: "Ventas del local y stock", icon: Calculator },
       { id: "inventory", label: "Inventario", description: "Ingredientes, recetas y compras", icon: Warehouse },
       { id: "pos", label: "POS y caja", description: "Cobros, turnos y movimientos", icon: CircleDollarSign },
-      { id: "reservations", label: "Reservas", description: "Disponibilidad, agenda y no-show", icon: CalendarDays },
+      { id: "reservations", label: "Reservas", description: "Agenda, señas y lista de espera", icon: CalendarDays },
       { id: "reports", label: "Reportes", description: "Ventas, tiempos y ocupación", icon: BarChart3 },
       { id: "menu", label: "Carta", description: "Platos, disponibilidad y QR", icon: UtensilsCrossed },
       { id: "dining", label: "Salón", description: "Mesas, comandas y KDS", icon: ConciergeBell },

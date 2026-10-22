@@ -10,9 +10,12 @@ const defaults: Record<NotificationEvent, { subject: (store: string) => string; 
   ORDER_SHIPPED: { subject: (store) => `Tu pedido de ${store} fue enviado`, message: "Tu compra ya está en camino." },
   ORDER_READY_FOR_PICKUP: { subject: (store) => `Tu pedido de ${store} está listo para retirar`, message: "Tu compra ya está preparada. Revisá el punto de retiro, los horarios y las indicaciones antes de acercarte." },
   CART_ABANDONED: { subject: (store) => `Tu carrito te espera en ${store}`, message: "Guardamos los productos que elegiste para que puedas completar tu compra." },
+  RESERVATION_CONFIRMED: { subject: (store) => `Tu reserva en ${store} está confirmada`, message: "Confirmamos tu mesa. Guardá este correo y avisá al local si necesitás hacer un cambio." },
+  RESERVATION_REMINDER: { subject: (store) => `Recordatorio de tu reserva en ${store}`, message: "Tu reserva se acerca. Revisá los datos y avisá si no vas a poder asistir." },
+  RESERVATION_WAITLIST_OFFER: { subject: (store) => `Se liberó una mesa en ${store}`, message: "Tenemos una mesa para tu solicitud. Confirmala desde el enlace antes de que venza la oferta." },
 };
 
-export async function dispatchTenantNotification(input: { tenantId: string; event: NotificationEvent; recipient: string; actionUrl: string; orderId?: string }): Promise<{ id: string } | null> {
+export async function dispatchTenantNotification(input: { tenantId: string; event: NotificationEvent; recipient: string; actionUrl: string; orderId?: string; reservationId?: string; nextAttemptAt?: Date }): Promise<{ id: string } | null> {
   const tenant = await database.tenant.findUnique({
     where: { id: input.tenantId },
     include: { notificationRules: { where: { event: input.event } } },
@@ -20,20 +23,19 @@ export async function dispatchTenantNotification(input: { tenantId: string; even
   if (!tenant) return null;
   const rule = tenant.notificationRules[0];
   if (rule && !rule.active) return null;
-  return database.notificationLog.create({
-    data: {
-      tenantId: input.tenantId,
-      orderId: input.orderId,
-      event: input.event,
-      recipient: input.recipient,
-      subject: rule?.subject ?? defaults[input.event].subject(tenant.name),
-      message: rule?.message ?? defaults[input.event].message,
-      actionUrl: input.actionUrl,
-      status: "PENDING",
-      nextAttemptAt: new Date(),
-    },
-    select: { id: true },
-  });
+  try {
+    return await database.notificationLog.create({
+      data: {
+        tenantId: input.tenantId, orderId: input.orderId, reservationId: input.reservationId, event: input.event,
+        recipient: input.recipient, subject: rule?.subject ?? defaults[input.event].subject(tenant.name),
+        message: rule?.message ?? defaults[input.event].message, actionUrl: input.actionUrl,
+        status: "PENDING", nextAttemptAt: input.nextAttemptAt ?? new Date(),
+      }, select: { id: true },
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002" && input.reservationId) return database.notificationLog.findFirst({ where: { tenantId: input.tenantId, reservationId: input.reservationId, event: input.event }, select: { id: true } });
+    throw error;
+  }
 }
 
 export async function processPendingNotifications(batchSize = 20): Promise<{ sent: number; failed: number }> {

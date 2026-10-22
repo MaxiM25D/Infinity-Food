@@ -190,6 +190,26 @@ enum ReservationStatus {
   EXPIRED
 }
 
+enum ReservationDepositStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FORFEITED
+}
+
+enum ReservationDepositType {
+  FIXED
+  PER_PERSON
+}
+
+enum WaitlistStatus {
+  WAITING
+  OFFERED
+  BOOKED
+  CANCELLED
+  EXPIRED
+}
+
 enum SalesChannel {
   ONLINE
   LOCAL
@@ -261,6 +281,9 @@ enum NotificationEvent {
   ORDER_SHIPPED
   ORDER_READY_FOR_PICKUP
   CART_ABANDONED
+  RESERVATION_CONFIRMED
+  RESERVATION_REMINDER
+  RESERVATION_WAITLIST_OFFER
 }
 
 enum AnalyticsEventType {
@@ -271,10 +294,10 @@ enum AnalyticsEventType {
 }
 
 model Tenant {
-  id                      String                   @id @default(cuid())
-  slug                    String                   @unique
+  id                      String                         @id @default(cuid())
+  slug                    String                         @unique
   name                    String
-  status                  TenantStatus             @default(ACTIVE)
+  status                  TenantStatus                   @default(ACTIVE)
   memberships             Membership[]
   branches                Branch[]
   categories              Category[]
@@ -324,6 +347,10 @@ model Tenant {
   reservationSchedules    ReservationSchedule[]
   reservations            Reservation[]
   reservationAudits       ReservationAudit[]
+  reservationPolicies     ReservationPolicy[]
+  reservationExceptions   ReservationScheduleException[]
+  reservationDeposits     ReservationDeposit[]
+  reservationWaitlist     ReservationWaitlistEntry[]
   modifierGroups          MenuModifierGroup[]
   modifierOptions         MenuModifierOption[]
   orderItemModifiers      OrderItemModifier[]
@@ -333,9 +360,9 @@ model Tenant {
   diningTableGroupMembers DiningTableGroupMember[]
   printJobs               PrintJob[]
   supportAccessLogs       SupportAccessLog[]
-  lastActiveUsers         User[]                   @relation("UserLastTenant")
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
+  lastActiveUsers         User[]                         @relation("UserLastTenant")
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
 }
 
 model User {
@@ -371,6 +398,7 @@ model User {
   orderPayments           OrderPayment[]
   createdReservations     Reservation[]            @relation("ReservationCreator")
   reservationAudits       ReservationAudit[]
+  reservationDeposits     ReservationDeposit[]
   orderAdjustments        OrderAdjustment[]
   diningTableGroups       DiningTableGroup[]
   claimedPrintJobs        PrintJob[]               @relation("PrintJobClaimedBy")
@@ -558,50 +586,54 @@ model Membership {
 }
 
 model Branch {
-  id                   String                   @id @default(cuid())
-  tenantId             String
-  slug                 String
-  name                 String
-  status               BranchStatus             @default(ACTIVE)
-  isPrimary            Boolean                  @default(false)
-  timezone             String                   @default("America/Argentina/Buenos_Aires")
-  address              String?
-  city                 String?
-  province             String?
-  postalCode           String?
-  phone                String?
-  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships          MembershipBranch[]
-  sectors              Sector[]
-  tables               RestaurantTable[]
-  orders               Order[]
-  activeSessions       AuthSession[]            @relation("AuthSessionActiveBranch")
-  menuItems            BranchMenuItem[]
-  kitchenStations      KitchenStation[]
-  orderRounds          OrderRound[]
-  kitchenTickets       KitchenTicket[]
-  diningAudits         DiningOrderAudit[]
-  cashRegisters        CashRegister[]
-  cashSessions         CashRegisterSession[]
-  cashMovements        CashMovement[]
-  orderPayments        OrderPayment[]
-  reservationSchedules ReservationSchedule[]
-  reservations         Reservation[]
-  reservationAudits    ReservationAudit[]
-  modifierGroups       MenuModifierGroup[]
-  tableGroups          DiningTableGroup[]
-  tableGroupMembers    DiningTableGroupMember[]
-  orderAdjustments     OrderAdjustment[]
-  paymentAllocations   OrderPaymentAllocation[]
-  printJobs            PrintJob[]
-  inventoryLocations   InventoryLocation[]
-  ingredientStocks     IngredientStock[]
-  ingredientMovements  IngredientMovement[]
-  purchaseOrders       PurchaseOrder[]
-  purchaseReceipts     PurchaseReceipt[]
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
-  menuModifierOptions  MenuModifierOption[]
+  id                    String                         @id @default(cuid())
+  tenantId              String
+  slug                  String
+  name                  String
+  status                BranchStatus                   @default(ACTIVE)
+  isPrimary             Boolean                        @default(false)
+  timezone              String                         @default("America/Argentina/Buenos_Aires")
+  address               String?
+  city                  String?
+  province              String?
+  postalCode            String?
+  phone                 String?
+  tenant                Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships           MembershipBranch[]
+  sectors               Sector[]
+  tables                RestaurantTable[]
+  orders                Order[]
+  activeSessions        AuthSession[]                  @relation("AuthSessionActiveBranch")
+  menuItems             BranchMenuItem[]
+  kitchenStations       KitchenStation[]
+  orderRounds           OrderRound[]
+  kitchenTickets        KitchenTicket[]
+  diningAudits          DiningOrderAudit[]
+  cashRegisters         CashRegister[]
+  cashSessions          CashRegisterSession[]
+  cashMovements         CashMovement[]
+  orderPayments         OrderPayment[]
+  reservationSchedules  ReservationSchedule[]
+  reservations          Reservation[]
+  reservationAudits     ReservationAudit[]
+  reservationPolicy     ReservationPolicy?
+  reservationExceptions ReservationScheduleException[]
+  reservationDeposits   ReservationDeposit[]
+  reservationWaitlist   ReservationWaitlistEntry[]
+  modifierGroups        MenuModifierGroup[]
+  tableGroups           DiningTableGroup[]
+  tableGroupMembers     DiningTableGroupMember[]
+  orderAdjustments      OrderAdjustment[]
+  paymentAllocations    OrderPaymentAllocation[]
+  printJobs             PrintJob[]
+  inventoryLocations    InventoryLocation[]
+  ingredientStocks      IngredientStock[]
+  ingredientMovements   IngredientMovement[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseReceipts      PurchaseReceipt[]
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  menuModifierOptions   MenuModifierOption[]
 
   @@unique([tenantId, slug])
   @@unique([tenantId, id])
@@ -686,12 +718,46 @@ model ReservationSchedule {
   @@index([tenantId, branchId, active])
 }
 
+model ReservationPolicy {
+  tenantId                String
+  branchId                String
+  reminderHours           Int                    @default(24)
+  cancellationCutoffHours Int                    @default(2)
+  depositRequired         Boolean                @default(false)
+  depositType             ReservationDepositType @default(FIXED)
+  depositAmountInCents    Int                    @default(0)
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                  Branch                 @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  @@id([tenantId, branchId])
+}
+
+model ReservationScheduleException {
+  id              String   @id @default(cuid())
+  tenantId        String
+  branchId        String
+  date            DateTime @db.Date
+  closed          Boolean  @default(true)
+  opensAtMinutes  Int?
+  closesAtMinutes Int?
+  reason          String?
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, branchId, date])
+  @@index([tenantId, branchId, date])
+}
+
 model Reservation {
-  id              String             @id @default(cuid())
+  id              String                     @id @default(cuid())
   tenantId        String
   branchId        String
   tableId         String
-  status          ReservationStatus  @default(HOLD)
+  status          ReservationStatus          @default(HOLD)
   partySize       Int
   customerName    String
   customerPhone   String
@@ -706,21 +772,81 @@ model Reservation {
   seatedAt        DateTime?
   completedAt     DateTime?
   clientRequestId String
-  manageTokenHash String             @unique
+  manageTokenHash String                     @unique
   createdByUserId String?
-  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch          Branch             @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
-  table           RestaurantTable    @relation(fields: [tenantId, branchId, tableId], references: [tenantId, branchId, id], onDelete: Restrict)
-  createdBy       User?              @relation("ReservationCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  customerId      String?
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch                     @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  table           RestaurantTable            @relation(fields: [tenantId, branchId, tableId], references: [tenantId, branchId, id], onDelete: Restrict)
+  createdBy       User?                      @relation("ReservationCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  customer        Customer?                  @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   audits          ReservationAudit[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  deposits        ReservationDeposit[]
+  notifications   NotificationLog[]
+  waitlistEntries ReservationWaitlistEntry[]
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
   @@unique([tenantId, clientRequestId])
+  @@unique([tenantId, id])
   @@unique([tenantId, branchId, id])
   @@index([tenantId, branchId, startsAt, status])
   @@index([status, holdExpiresAt])
   @@index([tableId, startsAt, endsAt])
+  @@index([tenantId, customerId, startsAt])
+}
+
+model ReservationDeposit {
+  id               String                   @id @default(cuid())
+  tenantId         String
+  branchId         String
+  reservationId    String
+  status           ReservationDepositStatus @default(PENDING)
+  amountInCents    Int
+  method           PaymentMethod?
+  reference        String?
+  clientRequestId  String
+  receivedByUserId String?
+  paidAt           DateTime?
+  resolvedAt       DateTime?
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch                   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  reservation      Reservation              @relation(fields: [tenantId, branchId, reservationId], references: [tenantId, branchId, id], onDelete: Cascade)
+  receivedBy       User?                    @relation(fields: [receivedByUserId], references: [id], onDelete: SetNull)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@unique([tenantId, clientRequestId])
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, reservationId])
+}
+
+model ReservationWaitlistEntry {
+  id               String         @id @default(cuid())
+  tenantId         String
+  branchId         String
+  reservationId    String?
+  status           WaitlistStatus @default(WAITING)
+  requestedDate    DateTime       @db.Date
+  preferredMinutes Int?
+  partySize        Int
+  durationMinutes  Int            @default(90)
+  customerName     String
+  customerPhone    String
+  customerEmail    String?
+  notes            String?
+  clientRequestId  String
+  offerExpiresAt   DateTime?
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch         @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  reservation      Reservation?   @relation(fields: [tenantId, branchId, reservationId], references: [tenantId, branchId, id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([tenantId, clientRequestId])
+  @@unique([tenantId, branchId, id])
+  @@index([tenantId, branchId, requestedDate, status])
+  @@index([status, offerExpiresAt])
 }
 
 model ReservationAudit {
@@ -921,6 +1047,7 @@ model Customer {
   carts            Cart[]
   orders           Order[]
   sessions         CustomerSession[]
+  reservations     Reservation[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -1948,6 +2075,7 @@ model NotificationLog {
   id            String             @id @default(cuid())
   tenantId      String
   orderId       String?
+  reservationId String?
   event         NotificationEvent
   recipient     String
   subject       String             @default("")
@@ -1961,11 +2089,14 @@ model NotificationLog {
   sentAt        DateTime?
   tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   order         Order?             @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  reservation   Reservation?       @relation(fields: [tenantId, reservationId], references: [tenantId, id], onDelete: Cascade)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
+  @@unique([tenantId, reservationId, event])
   @@index([tenantId, event, createdAt])
   @@index([tenantId, orderId, createdAt])
+  @@index([tenantId, reservationId, createdAt])
   @@index([status, nextAttemptAt])
 }
 

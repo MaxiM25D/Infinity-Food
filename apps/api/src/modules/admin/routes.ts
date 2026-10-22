@@ -463,13 +463,13 @@ adminRouter.get("/customers", async (request, response) => {
         phone: true,
         createdAt: true,
         updatedAt: true,
-        _count: { select: { orders: { where: staffOrderWhere } } },
+        _count: { select: { orders: { where: staffOrderWhere }, reservations: { where: auth.role === "STAFF" ? { branchId: auth.branch.id } : {} } } },
       },
     }),
   ]);
 
-  const totals = customers.length
-    ? await database.order.groupBy({
+  const [totals, reservationTotals] = customers.length
+    ? await Promise.all([database.order.groupBy({
         by: ["customerId"],
         where: {
           tenantId: tenant.id,
@@ -478,17 +478,22 @@ adminRouter.get("/customers", async (request, response) => {
           paymentStatus: "APPROVED",
         },
         _sum: { totalInCents: true },
-      })
-    : [];
+      }), database.reservation.groupBy({ by: ["customerId", "status"], where: { tenantId: tenant.id, ...(auth.role === "STAFF" ? { branchId: auth.branch.id } : {}), customerId: { in: customers.map(({ id }) => id) } }, _count: true })])
+    : [[], []];
   const totalByCustomer = new Map(
     totals.map(({ customerId, _sum }) => [customerId, _sum.totalInCents ?? 0]),
   );
 
   response.json({
-    customers: customers.map((customer) => ({
-      ...customer,
-      approvedSpentInCents: totalByCustomer.get(customer.id) ?? 0,
-    })),
+    customers: customers.map((customer) => {
+      const reservations = reservationTotals.filter(({ customerId }) => customerId === customer.id);
+      const completedReservations = reservations.find(({ status }) => status === "COMPLETED")?._count ?? 0;
+      const noShows = reservations.find(({ status }) => status === "NO_SHOW")?._count ?? 0;
+      const activity = customer._count.orders + completedReservations;
+      const approvedSpentInCents = totalByCustomer.get(customer.id) ?? 0;
+      const segment = noShows >= 2 ? "AT_RISK" : approvedSpentInCents >= 100_000 || activity >= 5 ? "VIP" : activity >= 2 ? "REGULAR" : "NEW";
+      return { ...customer, approvedSpentInCents, completedReservations, noShows, segment };
+    }),
     pagination: {
       page,
       pageSize,
@@ -527,6 +532,10 @@ adminRouter.get("/customers/:id", async (request, response) => {
           _count: { select: { items: true } },
         },
       },
+      reservations: {
+        where: auth.role === "STAFF" ? { branchId: auth.branch.id } : {}, orderBy: { startsAt: "desc" }, take: 50,
+        select: { id: true, status: true, startsAt: true, partySize: true, customerName: true, branch: { select: { name: true } }, table: { select: { name: true } } },
+      },
     },
   });
   if (!customer) throw new HttpError(404, "Cliente no encontrado");
@@ -544,6 +553,9 @@ adminRouter.get("/customers/:id", async (request, response) => {
           (total, order) => total + order.totalInCents,
           0,
         ),
+        reservations: customer.reservations.length,
+        completedReservations: customer.reservations.filter(({ status }) => status === "COMPLETED").length,
+        noShows: customer.reservations.filter(({ status }) => status === "NO_SHOW").length,
       },
     },
   });

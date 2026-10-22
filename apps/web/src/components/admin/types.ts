@@ -173,7 +173,10 @@ export type CustomerSummary = {
   createdAt: string;
   updatedAt: string;
   approvedSpentInCents: number;
-  _count: { orders: number };
+  completedReservations: number;
+  noShows: number;
+  segment: "NEW" | "REGULAR" | "VIP" | "AT_RISK";
+  _count: { orders: number; reservations: number };
 };
 
 export type CustomerDetail = CustomerSummary & {
@@ -181,6 +184,9 @@ export type CustomerDetail = CustomerSummary & {
     orders: number;
     approvedOrders: number;
     approvedSpentInCents: number;
+    reservations: number;
+    completedReservations: number;
+    noShows: number;
   };
   orders: Array<{
     id: string;
@@ -192,5 +198,13 @@ export type CustomerDetail = CustomerSummary & {
     currency: string;
     createdAt: string;
     _count: { items: number };
+  }>;
+  reservations: Array<{
+    id: string;
+    startsAt: string;
+    partySize: number;
+    status: string;
+    branch: { name: string };
+    table: { name: string };
   }>;
 };

@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "billing:reconcile:prod": "node dist/scripts/reconcile-pro-plan.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test --test-concurrency=1 test/auth-tenants.test.ts test/admin-panel.test.ts test/storefront.test.ts test/checkout-orders.test.ts test/saas-platform.test.ts test/saas-billing.test.ts test/payments-security.test.ts test/payment-validation.test.ts test/customers.test.ts test/account-security.test.ts test/production-readiness.test.ts test/growth-features.test.ts test/branches.test.ts test/menu.test.ts test/dining-kds.test.ts test/pos-cash.test.ts test/reservations.test.ts test/reports-hardening.test.ts test/realtime-reconnection.test.ts test/advanced-dining.test.ts test/inventory-costs.test.ts"
+    "test": "tsx --test --test-concurrency=1 test/auth-tenants.test.ts test/admin-panel.test.ts test/storefront.test.ts test/checkout-orders.test.ts test/saas-platform.test.ts test/saas-billing.test.ts test/payments-security.test.ts test/payment-validation.test.ts test/customers.test.ts test/account-security.test.ts test/production-readiness.test.ts test/growth-features.test.ts test/branches.test.ts test/menu.test.ts test/dining-kds.test.ts test/pos-cash.test.ts test/reservations.test.ts test/reports-hardening.test.ts test/realtime-reconnection.test.ts test/advanced-dining.test.ts test/inventory-costs.test.ts test/reservations-loyalty.test.ts"
   },
   "dependencies": {
     "@infinityfood/contracts": "workspace:*",
