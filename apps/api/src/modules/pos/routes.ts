@@ -35,8 +35,9 @@ posRouter.get("/overview", async (request, response) => {
       orderBy: { createdAt: "desc" }, take: 100,
       include: {
         restaurantTable: { select: { id: true, code: true, name: true } },
-        items: { orderBy: { createdAt: "asc" } },
-        operationalPayments: { orderBy: { createdAt: "asc" } },
+        items: { orderBy: { createdAt: "asc" }, include: { modifiers: true, paymentAllocations: true } },
+        adjustments: { orderBy: { createdAt: "asc" } },
+        operationalPayments: { orderBy: { createdAt: "asc" }, include: { allocations: true } },
       },
     }),
     database.restaurantTable.findMany({ where: { tenantId: auth.tenant.id, branchId: auth.branch.id, status: "AVAILABLE" }, orderBy: { name: "asc" } }),

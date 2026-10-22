@@ -41,7 +41,7 @@ async function publicTableContext(tenantSlug: string, branchSlug: string, tableC
           menuItems: {
             where: { availability: "AVAILABLE", product: { active: true, category: { is: { active: true } } } },
             orderBy: [{ sortOrder: "asc" }, { product: { name: "asc" } }],
-            select: { priceOverrideInCents: true, product: { select: { id: true, name: true, description: true, images: true, priceInCents: true, preparationTimeMinutes: true, allergens: true, dietaryTags: true, category: { select: { id: true, name: true, displayOrder: true } } } } },
+            select: { priceOverrideInCents: true, product: { select: { id: true, name: true, description: true, images: true, priceInCents: true, preparationTimeMinutes: true, allergens: true, dietaryTags: true, modifierGroups: { where: { active: true, branch: { slug: branchSlug } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, minChoices: true, maxChoices: true, options: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, priceInCents: true } } } }, category: { select: { id: true, name: true, displayOrder: true } } } } },
           },
         },
       },
@@ -65,6 +65,7 @@ publicDiningRouter.get("/:tenantSlug/:branchSlug/tables/:tableCode", async (requ
       id: link.product.id, name: link.product.name, description: link.product.description,
       image: link.product.images[0] ?? null, priceInCents: link.priceOverrideInCents ?? link.product.priceInCents,
       preparationTimeMinutes: link.product.preparationTimeMinutes, allergens: link.product.allergens, dietaryTags: link.product.dietaryTags,
+      modifierGroups: link.product.modifierGroups,
     });
     categories.set(category.id, group);
   }
@@ -242,7 +243,7 @@ adminDiningRouter.get("/kds/:stationId/tickets", requireBranchRoles("MANAGER", "
   const tickets = await database.kitchenTicket.findMany({
     where: { tenantId: auth.tenant.id, branchId: auth.branch.id, stationId, status: { in: ["PENDING", "PREPARING", "READY"] } },
     orderBy: { createdAt: "asc" },
-    include: { station: true, items: { include: { orderItem: true } }, round: { include: { order: { include: { restaurantTable: true } } } } },
+    include: { station: true, items: { include: { orderItem: { include: { modifiers: true } } } }, round: { include: { order: { include: { restaurantTable: true } } } } },
   });
   response.setHeader("Cache-Control", "no-store");
   response.json({ station, tickets, snapshotAt: new Date().toISOString() });
@@ -258,7 +259,7 @@ adminDiningRouter.patch("/kds/tickets/:ticketId/status", requireBranchRoles("MAN
   }
   const existingEvent = await database.diningOrderAudit.findUnique({ where: { eventId: input.eventId } });
   if (existingEvent) {
-    const current = await database.kitchenTicket.findFirst({ where: { id: ticketId, tenantId: auth.tenant.id, branchId: auth.branch.id }, include: { station: true, items: { include: { orderItem: true } } } });
+    const current = await database.kitchenTicket.findFirst({ where: { id: ticketId, tenantId: auth.tenant.id, branchId: auth.branch.id }, include: { station: true, items: { include: { orderItem: { include: { modifiers: true } } } } } });
     if (!current || existingEvent.entityId !== ticketId) throw new HttpError(409, "El evento ya fue utilizado");
     response.json({ ticket: current, idempotent: true });
     return;
@@ -278,7 +279,10 @@ adminDiningRouter.patch("/kds/tickets/:ticketId/status", requireBranchRoles("MAN
         readyAt: input.status === "READY" ? (current.readyAt ?? now) : undefined,
         servedAt: input.status === "SERVED" ? (current.servedAt ?? now) : undefined,
       },
-      include: { station: true, items: { include: { orderItem: true } } },
+      include: {
+        station: true,
+        items: { include: { orderItem: { include: { modifiers: true } } } },
+      },
     });
     await transaction.diningOrderAudit.create({ data: { eventId: input.eventId, tenantId: auth.tenant.id, branchId: auth.branch.id, orderId: current.round.orderId, actorUserId: auth.user.id, action: "TICKET_STATUS_CHANGED", entityType: "KitchenTicket", entityId: current.id, payload: { from: current.status, to: input.status } } });
     const remaining = await transaction.kitchenTicket.count({

@@ -23,6 +23,7 @@ import { adminDiningRouter, publicDiningRouter } from "./modules/dining/routes.j
 import { posRouter } from "./modules/pos/routes.js";
 import { adminReservationRouter, publicReservationRouter } from "./modules/reservations/routes.js";
 import { reportsRouter } from "./modules/reports/routes.js";
+import { advancedDiningRouter } from "./modules/advanced/routes.js";
 import { publicRoot } from "./services/storage.js";
 import { database } from "./database.js";
 import { log } from "./services/logger.js";
@@ -115,6 +116,7 @@ app.use("/api/admin/dining", adminDiningRouter);
 app.use("/api/admin/pos", posRouter);
 app.use("/api/admin/reservations", adminReservationRouter);
 app.use("/api/admin/reports", reportsRouter);
+app.use("/api/admin/advanced", advancedDiningRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/admin/integrations", adminIntegrationRouter);
 app.use("/api/integrations", integrationRouter);

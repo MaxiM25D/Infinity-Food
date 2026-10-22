@@ -27,6 +27,7 @@ publicMenuRouter.get("/:tenantSlug/:branchSlug", async (request, response) => {
           product: { select: {
             id: true, slug: true, name: true, description: true, images: true, priceInCents: true,
             preparationTimeMinutes: true, allergens: true, dietaryTags: true,
+            modifierGroups: { where: { active: true, branch: { slug: branchSlug } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, minChoices: true, maxChoices: true, options: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, priceInCents: true } } } },
             category: { select: { id: true, name: true, slug: true, description: true, displayOrder: true } },
           } },
         },
@@ -47,6 +48,7 @@ publicMenuRouter.get("/:tenantSlug/:branchSlug", async (request, response) => {
       preparationTimeMinutes: menuItem.product.preparationTimeMinutes,
       allergens: menuItem.product.allergens, dietaryTags: menuItem.product.dietaryTags,
       availability: menuItem.availability, featured: menuItem.featured,
+      modifierGroups: menuItem.product.modifierGroups,
     });
     grouped.set(category.id, current);
   }
@@ -67,7 +69,7 @@ adminMenuRouter.get("/", async (request, response) => {
   const items = await database.branchMenuItem.findMany({
     where: { tenantId: auth.tenant.id, branchId: auth.branch.id },
     orderBy: [{ product: { category: { displayOrder: "asc" } } }, { sortOrder: "asc" }, { product: { name: "asc" } }],
-    include: { product: { include: { category: { select: { id: true, name: true } } } } },
+    include: { product: { include: { category: { select: { id: true, name: true } }, modifierGroups: { where: { branchId: auth.branch.id }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { options: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] } } } } } },
   });
   response.json({ branch: auth.branch, menuPath: `/carta/${auth.tenant.slug}/${auth.branch.slug}`, items });
 });

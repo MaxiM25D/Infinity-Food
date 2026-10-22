@@ -52,10 +52,11 @@ export async function posOrderSnapshot(tenantId: string, branchId: string, order
     where: { id: orderId, tenantId, branchId, diningStatus: { not: null } },
     include: {
       restaurantTable: { select: { id: true, code: true, name: true } },
-      items: { orderBy: { createdAt: "asc" } },
+      items: { orderBy: { createdAt: "asc" }, include: { modifiers: true, paymentAllocations: true } },
+      adjustments: { orderBy: { createdAt: "asc" } },
       operationalPayments: {
         orderBy: { createdAt: "asc" },
-        include: { createdBy: { select: { firstName: true, lastName: true } } },
+        include: { createdBy: { select: { firstName: true, lastName: true } }, allocations: true },
       },
     },
   });
@@ -142,9 +143,11 @@ async function openSessionOrThrow(transaction: Transaction, tenantId: string, br
 export async function registerOrderPayment(input: {
   tenantId: string; branchId: string; orderId: string; userId: string; clientRequestId: string;
   method: OperationalMethod; amountInCents: number; reference?: string | null;
+  allocations?: Array<{ amountInCents: number; orderItemId?: string | null; guestLabel?: string | null }>;
 }) {
   const duplicate = await database.orderPayment.findUnique({
     where: { tenantId_clientRequestId: { tenantId: input.tenantId, clientRequestId: input.clientRequestId } },
+    include: { allocations: true },
   });
   if (duplicate) {
     if (duplicate.orderId !== input.orderId || duplicate.kind !== "PAYMENT" || duplicate.amountInCents !== input.amountInCents || duplicate.method !== input.method) {
@@ -165,6 +168,11 @@ export async function registerOrderPayment(input: {
       const balanceInCents = order.totalInCents - totals.paidInCents;
       if (input.amountInCents > balanceInCents) throw new HttpError(409, `El cobro supera el saldo pendiente de ${balanceInCents} centavos`);
       const session = await openSessionOrThrow(transaction, input.tenantId, input.branchId);
+      const allocatedItemIds = [...new Set((input.allocations ?? []).flatMap(({ orderItemId }) => orderItemId ? [orderItemId] : []))];
+      if (allocatedItemIds.length) {
+        const validItems = await transaction.orderItem.count({ where: { tenantId: input.tenantId, orderId: order.id, id: { in: allocatedItemIds } } });
+        if (validItems !== allocatedItemIds.length) throw new HttpError(404, "Uno de los ítems asignados no pertenece al pedido");
+      }
       const created = await transaction.orderPayment.create({
         data: {
           tenantId: input.tenantId, branchId: input.branchId, orderId: order.id, cashSessionId: session.id,
@@ -172,6 +180,15 @@ export async function registerOrderPayment(input: {
           reference: input.reference || null, createdByUserId: input.userId,
         },
       });
+      if (input.allocations?.length) {
+        await transaction.orderPaymentAllocation.createMany({
+          data: input.allocations.map((allocation) => ({
+            tenantId: input.tenantId, branchId: input.branchId, orderId: order.id, orderPaymentId: created.id,
+            orderItemId: allocation.orderItemId || null, guestLabel: allocation.guestLabel || null,
+            amountInCents: allocation.amountInCents,
+          })),
+        });
+      }
       if (input.method === "CASH") {
         await transaction.cashMovement.create({
           data: {
@@ -193,12 +210,12 @@ export async function registerOrderPayment(input: {
           payload: { method: input.method, amountInCents: created.amountInCents, cashSessionId: session.id },
         },
       });
-      return created;
+      return transaction.orderPayment.findUniqueOrThrow({ where: { id: created.id }, include: { allocations: true } });
     });
     return { payment, order: await posOrderSnapshot(input.tenantId, input.branchId, input.orderId), created: true };
   } catch (error) {
     if ((error as { code?: string }).code !== "P2002") throw error;
-    const existing = await database.orderPayment.findUnique({ where: { tenantId_clientRequestId: { tenantId: input.tenantId, clientRequestId: input.clientRequestId } } });
+    const existing = await database.orderPayment.findUnique({ where: { tenantId_clientRequestId: { tenantId: input.tenantId, clientRequestId: input.clientRequestId } }, include: { allocations: true } });
     if (!existing || existing.orderId !== input.orderId) throw new HttpError(409, "El identificador del cobro ya fue utilizado");
     return { payment: existing, order: await posOrderSnapshot(input.tenantId, input.branchId, input.orderId), created: false };
   }

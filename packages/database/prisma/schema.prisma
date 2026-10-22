@@ -161,6 +161,25 @@ enum CashMovementType {
   ADJUSTMENT
 }
 
+enum OrderAdjustmentType {
+  DISCOUNT
+  TIP
+  COMPLIMENT
+}
+
+enum PrintJobType {
+  KITCHEN
+  RECEIPT
+}
+
+enum PrintJobStatus {
+  PENDING
+  CLAIMED
+  PRINTED
+  FAILED
+  CANCELLED
+}
+
 enum ReservationStatus {
   HOLD
   CONFIRMED
@@ -228,53 +247,61 @@ enum AnalyticsEventType {
 }
 
 model Tenant {
-  id                     String                  @id @default(cuid())
-  slug                   String                  @unique
-  name                   String
-  status                 TenantStatus            @default(ACTIVE)
-  memberships            Membership[]
-  branches               Branch[]
-  categories             Category[]
-  products               Product[]
-  productVariants        ProductVariant[]
-  customers              Customer[]
-  customerSessions       CustomerSession[]
-  carts                  Cart[]
-  orders                 Order[]
-  authSessions           AuthSession[]
-  settings               StoreSettings?
-  subscription           Subscription?
-  mercadoPagoConnection  MercadoPagoConnection?
-  mercadoPagoOAuthStates MercadoPagoOAuthState[]
-  paymentAttempts        PaymentAttempt[]
-  paymentReceipts        PaymentReceipt[]
-  shipments              Shipment[]
-  orderStatusHistory     OrderStatusHistory[]
-  teamInvitations        TeamInvitation[]
-  billingInvoices        BillingInvoice[]
-  customDomains          CustomDomain[]
-  coupons                Coupon[]
-  shippingZones          ShippingZone[]
-  pickupLocations        PickupLocation[]
-  notificationRules      NotificationRule[]
-  notificationLogs       NotificationLog[]
-  analyticsEvents        AnalyticsEvent[]
-  stockMovements         StockMovement[]
-  kitchenStations        KitchenStation[]
-  orderRounds            OrderRound[]
-  kitchenTickets         KitchenTicket[]
-  diningOrderAudits      DiningOrderAudit[]
-  cashRegisters          CashRegister[]
-  cashRegisterSessions   CashRegisterSession[]
-  cashMovements          CashMovement[]
-  orderPayments          OrderPayment[]
-  reservationSchedules  ReservationSchedule[]
-  reservations           Reservation[]
-  reservationAudits      ReservationAudit[]
-  supportAccessLogs      SupportAccessLog[]
-  lastActiveUsers        User[]                  @relation("UserLastTenant")
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  id                      String                   @id @default(cuid())
+  slug                    String                   @unique
+  name                    String
+  status                  TenantStatus             @default(ACTIVE)
+  memberships             Membership[]
+  branches                Branch[]
+  categories              Category[]
+  products                Product[]
+  productVariants         ProductVariant[]
+  customers               Customer[]
+  customerSessions        CustomerSession[]
+  carts                   Cart[]
+  orders                  Order[]
+  authSessions            AuthSession[]
+  settings                StoreSettings?
+  subscription            Subscription?
+  mercadoPagoConnection   MercadoPagoConnection?
+  mercadoPagoOAuthStates  MercadoPagoOAuthState[]
+  paymentAttempts         PaymentAttempt[]
+  paymentReceipts         PaymentReceipt[]
+  shipments               Shipment[]
+  orderStatusHistory      OrderStatusHistory[]
+  teamInvitations         TeamInvitation[]
+  billingInvoices         BillingInvoice[]
+  customDomains           CustomDomain[]
+  coupons                 Coupon[]
+  shippingZones           ShippingZone[]
+  pickupLocations         PickupLocation[]
+  notificationRules       NotificationRule[]
+  notificationLogs        NotificationLog[]
+  analyticsEvents         AnalyticsEvent[]
+  stockMovements          StockMovement[]
+  kitchenStations         KitchenStation[]
+  orderRounds             OrderRound[]
+  kitchenTickets          KitchenTicket[]
+  diningOrderAudits       DiningOrderAudit[]
+  cashRegisters           CashRegister[]
+  cashRegisterSessions    CashRegisterSession[]
+  cashMovements           CashMovement[]
+  orderPayments           OrderPayment[]
+  reservationSchedules    ReservationSchedule[]
+  reservations            Reservation[]
+  reservationAudits       ReservationAudit[]
+  modifierGroups          MenuModifierGroup[]
+  modifierOptions         MenuModifierOption[]
+  orderItemModifiers      OrderItemModifier[]
+  orderAdjustments        OrderAdjustment[]
+  paymentAllocations      OrderPaymentAllocation[]
+  diningTableGroups       DiningTableGroup[]
+  diningTableGroupMembers DiningTableGroupMember[]
+  printJobs               PrintJob[]
+  supportAccessLogs       SupportAccessLog[]
+  lastActiveUsers         User[]                   @relation("UserLastTenant")
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 }
 
 model User {
@@ -307,6 +334,9 @@ model User {
   orderPayments           OrderPayment[]
   createdReservations     Reservation[]            @relation("ReservationCreator")
   reservationAudits       ReservationAudit[]
+  orderAdjustments        OrderAdjustment[]
+  diningTableGroups       DiningTableGroup[]
+  claimedPrintJobs        PrintJob[]               @relation("PrintJobClaimedBy")
   supportAccessLogs       SupportAccessLog[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
@@ -491,38 +521,45 @@ model Membership {
 }
 
 model Branch {
-  id              String                @id @default(cuid())
-  tenantId        String
-  slug            String
-  name            String
-  status          BranchStatus          @default(ACTIVE)
-  isPrimary       Boolean               @default(false)
-  timezone        String                @default("America/Argentina/Buenos_Aires")
-  address         String?
-  city            String?
-  province        String?
-  postalCode      String?
-  phone           String?
-  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships     MembershipBranch[]
-  sectors         Sector[]
-  tables          RestaurantTable[]
-  orders          Order[]
-  activeSessions  AuthSession[]         @relation("AuthSessionActiveBranch")
-  menuItems       BranchMenuItem[]
-  kitchenStations KitchenStation[]
-  orderRounds     OrderRound[]
-  kitchenTickets  KitchenTicket[]
-  diningAudits    DiningOrderAudit[]
-  cashRegisters   CashRegister[]
-  cashSessions    CashRegisterSession[]
-  cashMovements   CashMovement[]
-  orderPayments   OrderPayment[]
+  id                   String                   @id @default(cuid())
+  tenantId             String
+  slug                 String
+  name                 String
+  status               BranchStatus             @default(ACTIVE)
+  isPrimary            Boolean                  @default(false)
+  timezone             String                   @default("America/Argentina/Buenos_Aires")
+  address              String?
+  city                 String?
+  province             String?
+  postalCode           String?
+  phone                String?
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships          MembershipBranch[]
+  sectors              Sector[]
+  tables               RestaurantTable[]
+  orders               Order[]
+  activeSessions       AuthSession[]            @relation("AuthSessionActiveBranch")
+  menuItems            BranchMenuItem[]
+  kitchenStations      KitchenStation[]
+  orderRounds          OrderRound[]
+  kitchenTickets       KitchenTicket[]
+  diningAudits         DiningOrderAudit[]
+  cashRegisters        CashRegister[]
+  cashSessions         CashRegisterSession[]
+  cashMovements        CashMovement[]
+  orderPayments        OrderPayment[]
   reservationSchedules ReservationSchedule[]
-  reservations    Reservation[]
-  reservationAudits ReservationAudit[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  reservations         Reservation[]
+  reservationAudits    ReservationAudit[]
+  modifierGroups       MenuModifierGroup[]
+  tableGroups          DiningTableGroup[]
+  tableGroupMembers    DiningTableGroupMember[]
+  orderAdjustments     OrderAdjustment[]
+  paymentAllocations   OrderPaymentAllocation[]
+  printJobs            PrintJob[]
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  menuModifierOptions  MenuModifierOption[]
 
   @@unique([tenantId, slug])
   @@unique([tenantId, id])
@@ -566,21 +603,23 @@ model Sector {
 }
 
 model RestaurantTable {
-  id          String      @id @default(cuid())
-  tenantId    String
-  branchId    String
-  sectorId    String?
-  code        String
-  name        String
-  minCapacity Int         @default(1)
-  maxCapacity Int
-  status      TableStatus @default(AVAILABLE)
-  branch      Branch      @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
-  sector      Sector?     @relation(fields: [tenantId, branchId, sectorId], references: [tenantId, branchId, id], onDelete: Restrict)
-  orders      Order[]
-  reservations Reservation[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id            String                   @id @default(cuid())
+  tenantId      String
+  branchId      String
+  sectorId      String?
+  code          String
+  name          String
+  minCapacity   Int                      @default(1)
+  maxCapacity   Int
+  status        TableStatus              @default(AVAILABLE)
+  branch        Branch                   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  sector        Sector?                  @relation(fields: [tenantId, branchId, sectorId], references: [tenantId, branchId, id], onDelete: Restrict)
+  orders        Order[]
+  reservations  Reservation[]
+  primaryGroups DiningTableGroup[]       @relation("DiningTableGroupPrimary")
+  groupMembers  DiningTableGroupMember[] @relation("DiningTableGroupTable")
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   @@unique([tenantId, branchId, code])
   @@unique([tenantId, branchId, id])
@@ -606,11 +645,11 @@ model ReservationSchedule {
 }
 
 model Reservation {
-  id              String            @id @default(cuid())
+  id              String             @id @default(cuid())
   tenantId        String
   branchId        String
   tableId         String
-  status          ReservationStatus @default(HOLD)
+  status          ReservationStatus  @default(HOLD)
   partySize       Int
   customerName    String
   customerPhone   String
@@ -625,15 +664,15 @@ model Reservation {
   seatedAt        DateTime?
   completedAt     DateTime?
   clientRequestId String
-  manageTokenHash String            @unique
+  manageTokenHash String             @unique
   createdByUserId String?
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch          Branch            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
-  table           RestaurantTable   @relation(fields: [tenantId, branchId, tableId], references: [tenantId, branchId, id], onDelete: Restrict)
-  createdBy       User?             @relation("ReservationCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch             @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  table           RestaurantTable    @relation(fields: [tenantId, branchId, tableId], references: [tenantId, branchId, id], onDelete: Restrict)
+  createdBy       User?              @relation("ReservationCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   audits          ReservationAudit[]
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   @@unique([tenantId, clientRequestId])
   @@unique([tenantId, branchId, id])
@@ -643,7 +682,7 @@ model Reservation {
 }
 
 model ReservationAudit {
-  id            String            @id @default(cuid())
+  id            String             @id @default(cuid())
   tenantId      String
   branchId      String
   reservationId String
@@ -651,11 +690,11 @@ model ReservationAudit {
   toStatus      ReservationStatus
   actorUserId   String?
   reason        String?
-  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch        Branch            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
-  reservation   Reservation       @relation(fields: [tenantId, branchId, reservationId], references: [tenantId, branchId, id], onDelete: Cascade)
-  actor         User?             @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
-  createdAt     DateTime          @default(now())
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch             @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  reservation   Reservation        @relation(fields: [tenantId, branchId, reservationId], references: [tenantId, branchId, id], onDelete: Cascade)
+  actor         User?              @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
 
   @@index([tenantId, branchId, reservationId, createdAt])
   @@index([actorUserId])
@@ -706,6 +745,7 @@ model Product {
   stockMovements         StockMovement[]
   branchMenuItems        BranchMenuItem[]
   stationAssignments     KitchenStationMenuItem[]
+  modifierGroups         MenuModifierGroup[]
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 
@@ -899,30 +939,30 @@ model CartItem {
 }
 
 model Order {
-  id                           String               @id @default(cuid())
+  id                           String                   @id @default(cuid())
   tenantId                     String
   branchId                     String
   customerId                   String?
   number                       Int
-  channel                      SalesChannel         @default(ONLINE)
+  channel                      SalesChannel             @default(ONLINE)
   soldByUserId                 String?
-  localSaleKey                 String?              @unique
-  status                       OrderStatus          @default(PENDING)
-  paymentStatus                PaymentStatus        @default(PENDING)
-  paymentMethod                PaymentMethod        @default(BANK_TRANSFER)
-  stockStatus                  StockStatus          @default(RESERVED)
+  localSaleKey                 String?                  @unique
+  status                       OrderStatus              @default(PENDING)
+  paymentStatus                PaymentStatus            @default(PENDING)
+  paymentMethod                PaymentMethod            @default(BANK_TRANSFER)
+  stockStatus                  StockStatus              @default(RESERVED)
   stockExpiresAt               DateTime?
-  publicTokenHash              String?              @unique
+  publicTokenHash              String?                  @unique
   customerEmail                String
   customerName                 String
   customerPhone                String?
   shippingAddress              String?
   notes                        String?
-  currency                     String               @default("ARS")
+  currency                     String                   @default("ARS")
   subtotalInCents              Int
-  discountInCents              Int                  @default(0)
+  discountInCents              Int                      @default(0)
   couponCode                   String?
-  shippingInCents              Int                  @default(0)
+  shippingInCents              Int                      @default(0)
   shippingMethod               String?
   shippingPostalCode           String?
   shippingZoneName             String?
@@ -934,7 +974,7 @@ model Order {
   shippingTrackingUrlTemplate  String?
   shippingPolicySnapshot       String?
   returnPolicySnapshot         String?
-  fulfillmentType              FulfillmentType      @default(DELIVERY)
+  fulfillmentType              FulfillmentType          @default(DELIVERY)
   pickupLocationName           String?
   pickupAddress                String?
   pickupMapsUrl                String?
@@ -950,10 +990,10 @@ model Order {
   diningOpenedAt               DateTime?
   diningClosedAt               DateTime?
   totalInCents                 Int
-  tenant                       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch                       Branch               @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  restaurantTable              RestaurantTable?     @relation(fields: [tenantId, branchId, restaurantTableId], references: [tenantId, branchId, id], onDelete: Restrict)
-  customer                     Customer?            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  tenant                       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                       Branch                   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  restaurantTable              RestaurantTable?         @relation(fields: [tenantId, branchId, restaurantTableId], references: [tenantId, branchId, id], onDelete: Restrict)
+  customer                     Customer?                @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   items                        OrderItem[]
   paymentAttempts              PaymentAttempt[]
   operationalPayments          OrderPayment[]
@@ -961,13 +1001,16 @@ model Order {
   shipment                     Shipment?
   notificationLogs             NotificationLog[]
   statusHistory                OrderStatusHistory[]
-  soldBy                       User?                @relation("LocalSaleSeller", fields: [soldByUserId], references: [id], onDelete: SetNull)
-  openedBy                     User?                @relation("DiningOrderOpener", fields: [openedByUserId], references: [id], onDelete: SetNull)
+  soldBy                       User?                    @relation("LocalSaleSeller", fields: [soldByUserId], references: [id], onDelete: SetNull)
+  openedBy                     User?                    @relation("DiningOrderOpener", fields: [openedByUserId], references: [id], onDelete: SetNull)
   rounds                       OrderRound[]
   diningAudits                 DiningOrderAudit[]
+  adjustments                  OrderAdjustment[]
+  paymentAllocations           OrderPaymentAllocation[]
+  printJobs                    PrintJob[]
   stockMovements               StockMovement[]
-  createdAt                    DateTime             @default(now())
-  updatedAt                    DateTime             @updatedAt
+  createdAt                    DateTime                 @default(now())
+  updatedAt                    DateTime                 @updatedAt
 
   @@unique([tenantId, number])
   @@unique([tenantId, id])
@@ -1081,27 +1124,28 @@ model PaymentReceipt {
 }
 
 model OrderPayment {
-  id              String              @id @default(cuid())
+  id              String                   @id @default(cuid())
   tenantId        String
   branchId        String
   orderId         String
   cashSessionId   String
-  kind            OrderPaymentKind    @default(PAYMENT)
+  kind            OrderPaymentKind         @default(PAYMENT)
   method          PaymentMethod
   amountInCents   Int
   clientRequestId String
   reference       String?
   refundOfId      String?
   createdByUserId String
-  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch          Branch              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  order           Order               @relation(fields: [tenantId, branchId, orderId], references: [tenantId, branchId, id], onDelete: Cascade)
-  cashSession     CashRegisterSession @relation(fields: [tenantId, branchId, cashSessionId], references: [tenantId, branchId, id], onDelete: Restrict)
-  refundOf        OrderPayment?       @relation("OrderPaymentRefunds", fields: [tenantId, branchId, refundOfId], references: [tenantId, branchId, id], onDelete: Restrict)
-  refunds         OrderPayment[]      @relation("OrderPaymentRefunds")
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch                   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  order           Order                    @relation(fields: [tenantId, branchId, orderId], references: [tenantId, branchId, id], onDelete: Cascade)
+  cashSession     CashRegisterSession      @relation(fields: [tenantId, branchId, cashSessionId], references: [tenantId, branchId, id], onDelete: Restrict)
+  refundOf        OrderPayment?            @relation("OrderPaymentRefunds", fields: [tenantId, branchId, refundOfId], references: [tenantId, branchId, id], onDelete: Restrict)
+  refunds         OrderPayment[]           @relation("OrderPaymentRefunds")
   cashMovement    CashMovement?
-  createdBy       User                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
-  createdAt       DateTime            @default(now())
+  allocations     OrderPaymentAllocation[]
+  createdBy       User                     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                 @default(now())
 
   @@unique([tenantId, clientRequestId])
   @@unique([tenantId, id])
@@ -1231,25 +1275,29 @@ model OrderStatusHistory {
 }
 
 model OrderItem {
-  id                String             @id @default(cuid())
-  tenantId          String
-  orderId           String
-  productId         String?
-  variantId         String?
-  roundId           String?
-  sku               String
-  productName       String
-  variantName       String?
-  quantity          Int
-  unitPriceInCents  Int
-  subtotalInCents   Int
-  notes             String?
-  order             Order              @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
-  product           Product?           @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
-  variant           ProductVariant?    @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
-  round             OrderRound?        @relation(fields: [tenantId, orderId, roundId], references: [tenantId, orderId, id], onDelete: Restrict)
-  kitchenTicketItem KitchenTicketItem?
-  createdAt         DateTime           @default(now())
+  id                 String                   @id @default(cuid())
+  tenantId           String
+  orderId            String
+  productId          String?
+  variantId          String?
+  roundId            String?
+  sku                String
+  productName        String
+  variantName        String?
+  quantity           Int
+  unitPriceInCents   Int
+  subtotalInCents    Int
+  notes              String?
+  preparationPoint   String?
+  order              Order                    @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  product            Product?                 @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  variant            ProductVariant?          @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+  round              OrderRound?              @relation(fields: [tenantId, orderId, roundId], references: [tenantId, orderId, id], onDelete: Restrict)
+  kitchenTicketItem  KitchenTicketItem?
+  modifiers          OrderItemModifier[]
+  adjustments        OrderAdjustment[]
+  paymentAllocations OrderPaymentAllocation[]
+  createdAt          DateTime                 @default(now())
 
   @@unique([tenantId, id])
   @@index([tenantId, orderId])
@@ -1300,6 +1348,7 @@ model KitchenTicket {
   station         KitchenStation      @relation(fields: [tenantId, branchId, stationId], references: [tenantId, branchId, id], onDelete: Restrict)
   claimedBy       User?               @relation(fields: [claimedByUserId], references: [id], onDelete: SetNull)
   items           KitchenTicketItem[]
+  printJobs       PrintJob[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -1341,6 +1390,180 @@ model DiningOrderAudit {
   @@index([tenantId, branchId, createdAt])
   @@index([tenantId, orderId, createdAt])
   @@index([actorUserId])
+}
+
+model MenuModifierGroup {
+  id         String               @id @default(cuid())
+  tenantId   String
+  branchId   String
+  productId  String
+  name       String
+  minChoices Int                  @default(0)
+  maxChoices Int                  @default(1)
+  sortOrder  Int                  @default(0)
+  active     Boolean              @default(true)
+  tenant     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch               @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  product    Product              @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Cascade)
+  options    MenuModifierOption[]
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@unique([tenantId, branchId, productId, name])
+  @@unique([tenantId, branchId, id])
+  @@index([tenantId, branchId, productId, active, sortOrder])
+}
+
+model MenuModifierOption {
+  id           String              @id @default(cuid())
+  tenantId     String
+  branchId     String
+  groupId      String
+  name         String
+  priceInCents Int                 @default(0)
+  sortOrder    Int                 @default(0)
+  active       Boolean             @default(true)
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  group        MenuModifierGroup   @relation(fields: [tenantId, branchId, groupId], references: [tenantId, branchId, id], onDelete: Cascade)
+  snapshots    OrderItemModifier[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([tenantId, branchId, groupId, name])
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, groupId, active, sortOrder])
+}
+
+model OrderItemModifier {
+  id                String              @id @default(cuid())
+  tenantId          String
+  orderItemId       String
+  modifierOptionId  String?
+  groupName         String
+  optionName        String
+  unitPriceInCents  Int
+  totalPriceInCents Int
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderItem         OrderItem           @relation(fields: [tenantId, orderItemId], references: [tenantId, id], onDelete: Cascade)
+  modifierOption    MenuModifierOption? @relation(fields: [modifierOptionId], references: [id], onDelete: SetNull)
+  createdAt         DateTime            @default(now())
+
+  @@unique([tenantId, orderItemId, modifierOptionId])
+  @@index([tenantId, orderItemId])
+}
+
+model OrderAdjustment {
+  id              String              @id @default(cuid())
+  tenantId        String
+  branchId        String
+  orderId         String
+  orderItemId     String?
+  type            OrderAdjustmentType
+  label           String
+  reason          String
+  amountInCents   Int
+  clientRequestId String
+  createdByUserId String
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  order           Order               @relation(fields: [tenantId, branchId, orderId], references: [tenantId, branchId, id], onDelete: Cascade)
+  orderItem       OrderItem?          @relation(fields: [tenantId, orderItemId], references: [tenantId, id], onDelete: Restrict)
+  createdBy       User                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime            @default(now())
+
+  @@unique([tenantId, clientRequestId])
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, orderId, createdAt])
+  @@index([createdByUserId])
+}
+
+model OrderPaymentAllocation {
+  id             String       @id @default(cuid())
+  tenantId       String
+  branchId       String
+  orderId        String
+  orderPaymentId String
+  orderItemId    String?
+  guestLabel     String?
+  amountInCents  Int
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch       @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  order          Order        @relation(fields: [tenantId, branchId, orderId], references: [tenantId, branchId, id], onDelete: Cascade)
+  orderPayment   OrderPayment @relation(fields: [tenantId, branchId, orderPaymentId], references: [tenantId, branchId, id], onDelete: Cascade)
+  orderItem      OrderItem?   @relation(fields: [tenantId, orderItemId], references: [tenantId, id], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+
+  @@unique([tenantId, orderPaymentId, orderItemId, guestLabel])
+  @@index([tenantId, branchId, orderId, createdAt])
+  @@index([tenantId, orderItemId])
+}
+
+model DiningTableGroup {
+  id              String                   @id @default(cuid())
+  tenantId        String
+  branchId        String
+  primaryTableId  String
+  label           String?
+  createdByUserId String
+  closedAt        DateTime?
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch                   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  primaryTable    RestaurantTable          @relation("DiningTableGroupPrimary", fields: [tenantId, branchId, primaryTableId], references: [tenantId, branchId, id], onDelete: Restrict)
+  createdBy       User                     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  members         DiningTableGroupMember[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([tenantId, branchId, id])
+  @@index([tenantId, branchId, closedAt, createdAt])
+  @@index([createdByUserId])
+}
+
+model DiningTableGroupMember {
+  tenantId  String
+  branchId  String
+  groupId   String
+  tableId   String
+  activeKey String?          @unique
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch           @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  group     DiningTableGroup @relation(fields: [tenantId, branchId, groupId], references: [tenantId, branchId, id], onDelete: Cascade)
+  table     RestaurantTable  @relation("DiningTableGroupTable", fields: [tenantId, branchId, tableId], references: [tenantId, branchId, id], onDelete: Restrict)
+  joinedAt  DateTime         @default(now())
+  leftAt    DateTime?
+
+  @@id([tenantId, branchId, groupId, tableId])
+  @@index([tenantId, branchId, tableId, leftAt])
+}
+
+model PrintJob {
+  id              String         @id @default(cuid())
+  tenantId        String
+  branchId        String
+  orderId         String
+  kitchenTicketId String?
+  type            PrintJobType
+  status          PrintJobStatus @default(PENDING)
+  clientRequestId String
+  payload         Json
+  attempts        Int            @default(0)
+  error           String?
+  claimedByUserId String?
+  claimedAt       DateTime?
+  completedAt     DateTime?
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch         @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  order           Order          @relation(fields: [tenantId, branchId, orderId], references: [tenantId, branchId, id], onDelete: Cascade)
+  kitchenTicket   KitchenTicket? @relation(fields: [tenantId, kitchenTicketId], references: [tenantId, id], onDelete: Cascade)
+  claimedBy       User?          @relation("PrintJobClaimedBy", fields: [claimedByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([tenantId, clientRequestId])
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, status, createdAt])
+  @@index([tenantId, kitchenTicketId])
 }
 
 model CustomDomain {

@@ -9,6 +9,7 @@ const tabs = new Set<AdminTab>([
   "pos",
   "reservations",
   "reports",
+  "advanced",
   "orders",
   "customers",
   "management",

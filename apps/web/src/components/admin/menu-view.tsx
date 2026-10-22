@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink, QrCode, Save, UtensilsCrossed } from "lucide-react";
+import { ExternalLink, Plus, QrCode, Save, Trash2, UtensilsCrossed } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { BranchRole, TenantRole } from "@infinityfood/contracts";
@@ -13,10 +13,45 @@ type MenuItem = {
   priceOverrideInCents: number | null;
   sortOrder: number;
   featured: boolean;
-  product: { id: string; name: string; priceInCents: number; preparationTimeMinutes: number; category: { id: string; name: string } | null };
+  product: {
+    id: string; name: string; priceInCents: number; preparationTimeMinutes: number;
+    category: { id: string; name: string } | null;
+    modifierGroups: Array<{ id: string; name: string; minChoices: number; maxChoices: number; sortOrder: number; active: boolean; options: Array<{ id: string; name: string; priceInCents: number; sortOrder: number; active: boolean }> }>;
+  };
 };
 
 type MenuResponse = { branch: { name: string }; menuPath: string; items: MenuItem[] };
+
+type ModifierDraft = { name: string; minChoices: number; maxChoices: number; sortOrder: number; active: boolean; options: Array<{ name: string; priceInCents: number; sortOrder: number; active: boolean }> };
+
+function ModifierEditor({ productId, initial, disabled }: { productId: string; initial: MenuItem["product"]["modifierGroups"]; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [groups, setGroups] = useState<ModifierDraft[]>(() => initial.map((group) => ({ ...group, options: group.options.map((option) => ({ ...option })) })));
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  function changeGroup(index: number, change: Partial<ModifierDraft>) { setGroups((current) => current.map((group, groupIndex) => groupIndex === index ? { ...group, ...change } : group)); }
+  function changeOption(groupIndex: number, optionIndex: number, change: Partial<ModifierDraft["options"][number]>) {
+    setGroups((current) => current.map((group, currentGroup) => currentGroup === groupIndex ? { ...group, options: group.options.map((option, currentOption) => currentOption === optionIndex ? { ...option, ...change } : option) } : group));
+  }
+  async function save() {
+    setBusy(true); setMessage("");
+    try {
+      await apiRequest(`/admin/advanced/menu-items/${productId}/modifiers`, { method: "PUT", body: JSON.stringify({ groups }) });
+      setMessage("Modificadores guardados");
+    } catch (caught) { setMessage(caught instanceof Error ? caught.message : "No se pudieron guardar los modificadores"); }
+    finally { setBusy(false); }
+  }
+  return <div className="md:col-span-full">
+    <button className="text-xs font-semibold text-[#6E3482]" onClick={() => setOpen((current) => !current)} type="button">{open ? "Ocultar" : "Configurar"} modificadores ({groups.length})</button>
+    {open && <div className="mt-3 space-y-3 rounded-2xl bg-stone-50 p-4">{groups.map((group, groupIndex) => <div className="rounded-xl border bg-white p-3" key={`${groupIndex}:${group.name}`}>
+      <div className="grid gap-2 sm:grid-cols-[1fr_6rem_6rem_auto]"><input className="control" disabled={disabled} onChange={(event) => changeGroup(groupIndex, { name: event.target.value })} placeholder="Ej. Guarnición" value={group.name}/><input className="control" disabled={disabled} min="0" onChange={(event) => changeGroup(groupIndex, { minChoices: Number(event.target.value) })} title="Mínimo" type="number" value={group.minChoices}/><input className="control" disabled={disabled} min="1" onChange={(event) => changeGroup(groupIndex, { maxChoices: Number(event.target.value) })} title="Máximo" type="number" value={group.maxChoices}/><button className="rounded-lg border p-2 text-red-600" disabled={disabled} onClick={() => setGroups((current) => current.filter((_, index) => index !== groupIndex))} type="button"><Trash2 className="mx-auto" size={15}/></button></div>
+      <div className="mt-2 space-y-2">{group.options.map((option, optionIndex) => <div className="grid grid-cols-[1fr_8rem_auto] gap-2" key={`${optionIndex}:${option.name}`}><input className="control" disabled={disabled} onChange={(event) => changeOption(groupIndex, optionIndex, { name: event.target.value })} placeholder="Opción" value={option.name}/><input className="control" disabled={disabled} min="0" onChange={(event) => changeOption(groupIndex, optionIndex, { priceInCents: Math.round(Number(event.target.value) * 100) })} placeholder="Precio extra" type="number" value={option.priceInCents / 100}/><button className="rounded-lg border p-2 text-red-600" disabled={disabled || group.options.length === 1} onClick={() => changeGroup(groupIndex, { options: group.options.filter((_, index) => index !== optionIndex) })} type="button"><Trash2 size={14}/></button></div>)}</div>
+      <button className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#6E3482]" disabled={disabled} onClick={() => changeGroup(groupIndex, { options: [...group.options, { name: "", priceInCents: 0, sortOrder: group.options.length, active: true }] })} type="button"><Plus size={13}/> Opción</button>
+    </div>)}
+      {!disabled && <div className="flex flex-wrap items-center gap-2"><button className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-semibold" onClick={() => setGroups((current) => [...current, { name: "", minChoices: 0, maxChoices: 1, sortOrder: current.length, active: true, options: [{ name: "", priceInCents: 0, sortOrder: 0, active: true }] }])} type="button"><Plus size={14}/> Grupo</button><button className="rounded-xl bg-[#6E3482] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50" disabled={busy} onClick={() => void save()} type="button">{busy ? "Guardando…" : "Guardar modificadores"}</button>{message && <span className="text-xs text-stone-500">{message}</span>}</div>}
+    </div>}
+  </div>;
+}
 
 export function MenuView({ role, branchRole }: { role: TenantRole; branchRole: BranchRole | null }) {
   const canManage = role !== "STAFF" || branchRole === "MANAGER";
@@ -67,6 +102,7 @@ export function MenuView({ role, branchRole }: { role: TenantRole; branchRole: B
               <label className="text-xs font-semibold text-stone-500">Precio especial<input className="control mt-1" disabled={!canManage} min="0" onChange={(event) => update(item.product.id, { priceOverrideInCents: event.target.value ? Math.round(Number(event.target.value) * 100) : null })} placeholder="Usar precio base" type="number" value={item.priceOverrideInCents === null ? "" : item.priceOverrideInCents / 100} /></label>
               <label className="text-xs font-semibold text-stone-500">Orden<input className="control mt-1" disabled={!canManage} min="0" onChange={(event) => update(item.product.id, { sortOrder: Number(event.target.value) })} type="number" value={item.sortOrder} /></label>
               {canManage && <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#6E3482] px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={busyId === item.product.id} onClick={() => void save(item)} type="button"><Save size={15} /> Guardar</button>}
+              <ModifierEditor disabled={!canManage} initial={item.product.modifierGroups} productId={item.product.id}/>
             </article>
           ))}</div>}
         </div>

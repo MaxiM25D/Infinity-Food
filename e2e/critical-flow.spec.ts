@@ -39,6 +39,17 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   await expectStatus(productResponse, 201);
   const product = (await productResponse.json()).product as { id: string };
 
+  const modifiersResponse = await page.request.put(`/api/admin/advanced/menu-items/${product.id}/modifiers`, {
+    data: {
+      groups: [{
+        name: "Extra E2E", minChoices: 1, maxChoices: 1, sortOrder: 0, active: true,
+        options: [{ name: "Con cheddar", priceInCents: 200, sortOrder: 0, active: true }],
+      }],
+    },
+  });
+  await expectStatus(modifiersResponse, 200);
+  const modifierOptionId = (await modifiersResponse.json()).groups[0].options[0].id as string;
+
   const tableResponse = await page.request.post("/api/admin/dining/tables", {
     data: { code: `M${unique}`, name: "Mesa E2E", maxCapacity: 4 },
   });
@@ -53,11 +64,13 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   await page.goto(`/mesa/${tenantSlug}/${branchSlug}/${table.code}`);
   await expect(page.getByRole("heading", { name: "Restaurante E2E" })).toBeVisible();
   await expect(page.getByText(productName)).toBeVisible();
+  await page.getByRole("button", { name: `Agregar ${productName}` }).click();
+  await expect(page.getByRole("button", { name: /Con cheddar/ })).toBeVisible();
 
   const qrRequestId = crypto.randomUUID();
   const qrOrderBody = {
     clientRequestId: qrRequestId, customerName: "Cliente QR E2E",
-    items: [{ productId: product.id, quantity: 2, notes: "Sin sal" }],
+    items: [{ productId: product.id, quantity: 2, notes: "Sin sal", preparationPoint: "A punto", modifierOptionIds: [modifierOptionId] }],
   };
   const qrOrderResponse = await page.request.post(
     `/api/dining/${tenantSlug}/${branchSlug}/tables/${table.code}/orders`, { data: qrOrderBody },
@@ -78,10 +91,10 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   const kdsSnapshot = await page.request.get(`/api/admin/dining/kds/${stations[0]?.id}/tickets`);
   await expectStatus(kdsSnapshot, 200);
   const tickets = (await kdsSnapshot.json()).tickets as Array<{
-    id: string; items: Array<{ orderItem: { productName: string; quantity: number } }>;
+    id: string; items: Array<{ orderItem: { productName: string; quantity: number; preparationPoint: string | null; modifiers: Array<{ optionName: string }> } }>;
   }>;
   expect(tickets).toHaveLength(1);
-  expect(tickets[0]?.items[0]?.orderItem).toMatchObject({ productName, quantity: 2 });
+  expect(tickets[0]?.items[0]?.orderItem).toMatchObject({ productName, quantity: 2, preparationPoint: "A punto", modifiers: [{ optionName: "Con cheddar" }] });
 
   await page.goto("/kds");
   await expect(page.getByRole("heading", { name: "InfinityFood KDS" })).toBeVisible();
@@ -107,36 +120,50 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   const posOrderResponse = await page.request.post("/api/admin/pos/orders", {
     data: {
       clientRequestId: crypto.randomUUID(), serviceMode: "COUNTER", customerName: "Mostrador E2E",
-      items: [{ productId: product.id, quantity: 1 }],
+      items: [{ productId: product.id, quantity: 1, modifierOptionIds: [modifierOptionId] }],
     },
   });
   await expectStatus(posOrderResponse, 201);
-  const posOrder = (await posOrderResponse.json()).order as { id: string; totalInCents: number };
-  expect(posOrder.totalInCents).toBe(3000);
+  const posOrder = (await posOrderResponse.json()).order as { id: string; totalInCents: number; items: Array<{ id: string }> };
+  expect(posOrder.totalInCents).toBe(3200);
+
+  const tipResponse = await page.request.post(`/api/admin/advanced/orders/${posOrder.id}/adjustments`, {
+    data: { clientRequestId: crypto.randomUUID(), type: "TIP", label: "Propina", reason: "Servicio E2E", amountInCents: 100 },
+  });
+  await expectStatus(tipResponse, 201);
+  expect((await tipResponse.json()).order.totalInCents).toBe(3300);
 
   const cashPayment = await page.request.post(`/api/admin/pos/orders/${posOrder.id}/payments`, {
-    data: { clientRequestId: crypto.randomUUID(), method: "CASH", amountInCents: 1500 },
+    data: { clientRequestId: crypto.randomUUID(), method: "CASH", amountInCents: 1650, allocations: [{ amountInCents: 1650, guestLabel: "Ana" }] },
   });
   await expectStatus(cashPayment, 201);
   const cardPayment = await page.request.post(`/api/admin/pos/orders/${posOrder.id}/payments`, {
     data: {
       clientRequestId: crypto.randomUUID(), method: "CARD_EXTERNAL",
-      amountInCents: 1500, reference: "E2E-CARD",
+      amountInCents: 1650, reference: "E2E-CARD", allocations: [{ amountInCents: 1650, orderItemId: posOrder.items[0]?.id }],
     },
   });
   await expectStatus(cardPayment, 201);
   expect((await cardPayment.json()).order.balanceInCents).toBe(0);
 
+  const receiptResponse = await page.request.post(`/api/admin/advanced/orders/${posOrder.id}/print`, {
+    data: { clientRequestId: crypto.randomUUID() },
+  });
+  await expectStatus(receiptResponse, 201);
+  expect((await receiptResponse.json()).job.type).toBe("RECEIPT");
+
   const closeResponse = await page.request.post(`/api/admin/pos/cash-sessions/${cashSession.id}/close`, {
-    data: { declaredCashInCents: 11_500, note: "Cierre E2E" },
+    data: { declaredCashInCents: 11_650, note: "Cierre E2E" },
   });
   await expectStatus(closeResponse, 200);
   expect((await closeResponse.json()).session).toMatchObject({
-    expectedClosingCashInCents: 11_500, differenceInCents: 0, salesTotalInCents: 3000,
+    expectedClosingCashInCents: 11_650, differenceInCents: 0, salesTotalInCents: 3300,
   });
 
   await page.goto("/admin?tab=pos");
   await expect(page.getByRole("heading", { name: "POS, pagos y caja" })).toBeVisible();
+  await page.goto("/admin?tab=advanced");
+  await expect(page.getByRole("heading", { name: "Operación gastronómica avanzada" })).toBeVisible();
 
   const schedulesResponse = await page.request.put("/api/admin/reservations/schedules", {
     data: {

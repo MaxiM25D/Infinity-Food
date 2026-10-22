@@ -20,6 +20,7 @@ import {
   Users,
   UtensilsCrossed,
   ConciergeBell,
+  Combine,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +48,7 @@ import { DiningView } from "./dining-view";
 import { PosView } from "./pos-view";
 import { ReservationsView } from "./reservations-view";
 import { ReportsView } from "./reports-view";
+import { AdvancedView } from "./advanced-view";
 import type { Role } from "./types";
 import type { BranchContext } from "@infinityfood/contracts";
 
@@ -59,6 +61,7 @@ export type AdminTab =
   | "pos"
   | "reservations"
   | "reports"
+  | "advanced"
   | "orders"
   | "customers"
   | "management"
@@ -108,6 +111,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
       { id: "reports", label: "Reportes", description: "Ventas, tiempos y ocupación", icon: BarChart3 },
       { id: "menu", label: "Carta", description: "Platos, disponibilidad y QR", icon: UtensilsCrossed },
       { id: "dining", label: "Salón", description: "Mesas, comandas y KDS", icon: ConciergeBell },
+      { id: "advanced", label: "Operación avanzada", description: "Mesas unidas, cuentas e impresión", icon: Combine },
       { id: "orders", label: "Pedidos", description: "Ventas, pagos y entregas", icon: ShoppingBag },
       { id: "products", label: "Productos", description: "Catálogo, stock y variantes", icon: Boxes },
       { id: "categories", label: "Categorías", description: "Organización del catálogo", icon: Tags },
@@ -222,6 +226,7 @@ export function AdminPanel({
     pos: <PosView branchRole={session.branch.role} role={session.role} />,
     reservations: <ReservationsView />,
     reports: <ReportsView />,
+    advanced: <AdvancedView />,
     orders: <OrdersView role={session.role} />,
     customers: <CustomersView />,
     management: <ManagementView role={session.role} />,

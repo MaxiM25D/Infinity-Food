@@ -4,7 +4,7 @@ SaaS gastronómico multi-tenant en evolución incremental desde el core de Infin
 
 ## Seguimiento
 
-El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 7 están completas; la siguiente etapa planificada es la operación gastronómica avanzada.
+El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 8 están completas; la siguiente etapa planificada es inventario y costos.
 
 ## Estructura
 
@@ -98,6 +98,10 @@ El KDS está disponible en `/kds`. Socket.IO notifica cambios, pero cada conexi�
 ## POS, pagos operativos y caja
 
 El panel **POS y caja** permite abrir un turno por sucursal, generar pedidos de mostrador o mesa, registrar cobros parciales en efectivo, tarjeta externa o Mercado Pago y realizar devoluciones explícitas. Cada cobro usa un UUID idempotente y el servidor bloquea el pedido antes de validar el saldo, por lo que los reintentos y cobros concurrentes no pueden exceder el total.
+
+## Operación gastronómica avanzada
+
+La **Carta** permite configurar extras y modificadores por sucursal. El pedido QR valida las selecciones obligatorias, suma sus precios y conserva snapshots históricos; notas, extras y punto de cocción llegan al KDS. El panel **Operación avanzada** incorpora unión/separación y transferencia de mesas, propinas, descuentos, cortesías, división de cuenta por importe, ítem o comensal y una cola persistente de impresión para cocina y caja. Ver [docs/STAGE_8.md](docs/STAGE_8.md).
 
 ## Reservas
 

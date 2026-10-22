@@ -25,7 +25,16 @@ export const paymentSchema = z.object({
   method: z.enum(["CASH", "CARD_EXTERNAL", "MERCADO_PAGO"]),
   amountInCents: amountSchema,
   reference: z.string().trim().max(180).optional().nullable(),
-}).strict();
+  allocations: z.array(z.object({
+    amountInCents: amountSchema,
+    orderItemId: idSchema.optional().nullable(),
+    guestLabel: z.string().trim().min(1).max(80).optional().nullable(),
+  }).strict().refine((value) => Boolean(value.orderItemId || value.guestLabel), "Asigná el pago a un ítem o comensal")).max(50).default([]),
+}).strict().superRefine((value, context) => {
+  if (value.allocations.length && value.allocations.reduce((sum, allocation) => sum + allocation.amountInCents, 0) !== value.amountInCents) {
+    context.addIssue({ code: "custom", path: ["allocations"], message: "La distribución debe coincidir con el importe cobrado" });
+  }
+});
 
 export const refundSchema = z.object({
   clientRequestId: requestIdSchema,
@@ -44,6 +53,8 @@ export const posOrderSchema = z.object({
     productId: idSchema,
     quantity: z.coerce.number().int().min(1).max(50),
     notes: z.string().trim().max(300).optional().nullable(),
+    preparationPoint: z.string().trim().max(80).optional().nullable(),
+    modifierOptionIds: z.array(idSchema).max(30).default([]),
   }).strict()).min(1).max(50),
 }).strict().superRefine((value, context) => {
   if (value.serviceMode === "TABLE" && !value.tableId) {

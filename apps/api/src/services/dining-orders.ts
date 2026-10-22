@@ -5,7 +5,13 @@ import type { Prisma } from "@infinityshop/database";
 import { database } from "../database.js";
 import { HttpError } from "../errors.js";
 
-type DiningItemInput = { productId: string; quantity: number; notes?: string | null };
+type DiningItemInput = {
+  productId: string;
+  quantity: number;
+  notes?: string | null;
+  preparationPoint?: string | null;
+  modifierOptionIds?: string[];
+};
 type Transaction = Prisma.TransactionClient;
 
 function accessHash(tenantId: string, token: string): string {
@@ -27,7 +33,7 @@ export async function diningOrderSnapshot(tenantId: string, branchId: string, or
           items: { orderBy: { createdAt: "asc" } },
           tickets: {
             orderBy: { createdAt: "asc" },
-            include: { station: true, items: { include: { orderItem: true } } },
+            include: { station: true, items: { include: { orderItem: { include: { modifiers: true } } } } },
           },
         },
       },
@@ -66,7 +72,16 @@ async function createRound(
       product: { active: true },
     },
     include: {
-      product: { include: { stationAssignments: { where: { branchId: input.branchId }, include: { station: true } } } },
+      product: {
+        include: {
+          stationAssignments: { where: { branchId: input.branchId }, include: { station: true } },
+          modifierGroups: {
+            where: { branchId: input.branchId, active: true },
+            include: { options: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] } },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          },
+        },
+      },
     },
   });
   if (menuItems.length !== productIds.length) throw new HttpError(409, "Uno o más platos ya no están disponibles");
@@ -94,10 +109,21 @@ async function createRound(
 
   const menuByProduct = new Map(menuItems.map((item) => [item.productId, item]));
   const ticketItems = new Map<string, string[]>();
+  const createdItems = new Map<string, { productName: string; quantity: number; notes: string | null; preparationPoint: string | null; modifiers: string[] }>();
   let subtotal = 0;
   for (const requested of input.items) {
     const menuItem = menuByProduct.get(requested.productId)!;
-    const unitPriceInCents = menuItem.priceOverrideInCents ?? menuItem.product.priceInCents;
+    const selectedIds = [...new Set(requested.modifierOptionIds ?? [])];
+    if (selectedIds.length !== (requested.modifierOptionIds ?? []).length) throw new HttpError(400, "No repitas modificadores en un plato");
+    const optionsById = new Map(menuItem.product.modifierGroups.flatMap((group) => group.options.map((option) => [option.id, { option, group }] as const)));
+    const selected = selectedIds.map((optionId) => optionsById.get(optionId));
+    if (selected.some((option) => !option)) throw new HttpError(409, "Uno o más modificadores ya no están disponibles");
+    for (const group of menuItem.product.modifierGroups) {
+      const count = selected.filter((entry) => entry?.group.id === group.id).length;
+      if (count < group.minChoices || count > group.maxChoices) throw new HttpError(409, `Elegí entre ${group.minChoices} y ${group.maxChoices} opciones de ${group.name}`);
+    }
+    const modifierUnitInCents = selected.reduce((sum, entry) => sum + (entry?.option.priceInCents ?? 0), 0);
+    const unitPriceInCents = (menuItem.priceOverrideInCents ?? menuItem.product.priceInCents) + modifierUnitInCents;
     const item = await transaction.orderItem.create({
       data: {
         tenantId: input.tenantId,
@@ -110,9 +136,27 @@ async function createRound(
         unitPriceInCents,
         subtotalInCents: unitPriceInCents * requested.quantity,
         notes: requested.notes || null,
+        preparationPoint: requested.preparationPoint || null,
       },
     });
+    if (selected.length) {
+      await transaction.orderItemModifier.createMany({
+        data: selected.map((entry) => ({
+          tenantId: input.tenantId,
+          orderItemId: item.id,
+          modifierOptionId: entry!.option.id,
+          groupName: entry!.group.name,
+          optionName: entry!.option.name,
+          unitPriceInCents: entry!.option.priceInCents,
+          totalPriceInCents: entry!.option.priceInCents * requested.quantity,
+        })),
+      });
+    }
     subtotal += item.subtotalInCents;
+    createdItems.set(item.id, {
+      productName: item.productName, quantity: item.quantity, notes: item.notes,
+      preparationPoint: item.preparationPoint, modifiers: selected.map((entry) => entry!.option.name),
+    });
     const assignment = menuItem.product.stationAssignments[0];
     const station = assignment?.station.active ? assignment.station : defaultStation;
     ticketItems.set(station.id, [...(ticketItems.get(station.id) ?? []), item.id]);
@@ -124,6 +168,16 @@ async function createRound(
     });
     await transaction.kitchenTicketItem.createMany({
       data: itemIds.map((orderItemId) => ({ tenantId: input.tenantId, ticketId: ticket.id, orderItemId })),
+    });
+    await transaction.printJob.create({
+      data: {
+        tenantId: input.tenantId, branchId: input.branchId, orderId: input.orderId,
+        kitchenTicketId: ticket.id, type: "KITCHEN", clientRequestId: `kitchen:${ticket.id}`,
+        payload: {
+          roundNumber: round.number, stationId,
+          items: itemIds.map((itemId) => createdItems.get(itemId)!),
+        },
+      },
     });
     await transaction.diningOrderAudit.create({
       data: {

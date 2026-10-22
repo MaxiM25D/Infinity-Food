@@ -2,6 +2,8 @@
 
 Este documento es la fuente de seguimiento del producto. Una etapa solo cambia a `COMPLETADA` cuando se cumplen sus criterios de validación y existe evidencia reproducible.
 
+Desde la Etapa 8, cada cierre incluye en `docs/STAGE_N.md` un mapa de archivos, rutas, migraciones, pantallas y pruebas para facilitar el seguimiento técnico.
+
 | Etapa | Estado | Objetivo |
 | --- | --- | --- |
 | 0 — Auditoría | COMPLETADA | Inventariar InfinityShop y definir la transformación a InfinityFood. |
@@ -12,7 +14,7 @@ Este documento es la fuente de seguimiento del producto. Una etapa solo cambia a
 | 5 — Reservas | COMPLETADA | Disponibilidad, holds, concurrencia, estados y zona horaria. |
 | 6 — Reportes y endurecimiento | COMPLETADA | Métricas reconciliables, E2E, carga, observabilidad y recuperación. |
 | 7 — Estabilización y piloto | COMPLETADA | Seguridad, baseline versionable, branding, E2E operativo y staging reproducible. |
-| 8 — Operación gastronómica avanzada | PENDIENTE | Modificadores, propinas, división de cuenta, mesas e impresión. |
+| 8 — Operación gastronómica avanzada | COMPLETADA | Modificadores, propinas, división de cuenta, mesas e impresión. |
 | 9 — Inventario y costos | PENDIENTE | Stock por sucursal, recetas, ingredientes, compras y proveedores. |
 | 10 — Reservas y fidelización | PENDIENTE | Recordatorios, señas, lista de espera, CRM y comunicación. |
 | 11 — Pagos y fiscalidad | PENDIENTE | Mercado Pago POS automático, conciliación externa y ARCA/facturación. |
@@ -34,12 +36,14 @@ La activación con credenciales reales de Resend, Cloudinary y Mercado Pago sand
 
 ## Etapa 8 — Operación gastronómica avanzada
 
-- Modificadores y extras con precio y reglas por sucursal.
-- Notas y punto de cocción por ítem.
-- Unión, separación y transferencia de mesas.
-- División de cuenta por importe, ítem o comensal.
-- Propinas, descuentos y cortesías auditadas.
-- Impresión térmica o agente de impresión para cocina y caja.
+- [x] Modificadores y extras con precio y reglas por sucursal.
+- [x] Notas y punto de cocción por ítem.
+- [x] Unión, separación y transferencia de mesas.
+- [x] División de cuenta por importe, ítem o comensal.
+- [x] Propinas, descuentos y cortesías auditadas.
+- [x] Cola y protocolo de agente de impresión para cocina y caja.
+
+La integración ESC/POS concreta se configura por modelo de impresora en cada instalación. La implementación y evidencia están en [STAGE_8.md](STAGE_8.md).
 
 ## Etapa 9 — Inventario y costos
 

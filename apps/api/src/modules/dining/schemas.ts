@@ -8,6 +8,8 @@ export const diningItemsSchema = z.array(z.object({
   productId: idSchema,
   quantity: z.coerce.number().int().min(1).max(50),
   notes: z.string().trim().max(300).optional().nullable(),
+  preparationPoint: z.string().trim().max(80).optional().nullable(),
+  modifierOptionIds: z.array(idSchema).max(30).default([]),
 }).strict()).min(1).max(50);
 
 export const publicDiningOrderSchema = z.object({
