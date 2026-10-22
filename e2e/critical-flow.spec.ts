@@ -180,7 +180,9 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   });
 
   await page.goto("/admin?tab=pos");
-  await expect(page.getByRole("heading", { name: "POS, pagos y caja" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "POS, pagos y fiscalidad" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Conciliación Mercado Pago" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Facturación fiscal" })).toBeVisible();
   await page.goto("/admin?tab=advanced");
   await expect(page.getByRole("heading", { name: "Operación gastronómica avanzada" })).toBeVisible();
   await page.goto("/admin?tab=inventory");

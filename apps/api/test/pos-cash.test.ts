@@ -105,7 +105,7 @@ test("el total cobrado nunca supera el saldo pendiente", async () => {
   assert.deepEqual(competing.map(({ status }) => status).sort(), [201, 409]);
   cardPaymentId = competing.find(({ status }) => status === 201)!.body.payment.id;
   const mercadoPago = await agent.post(`/api/admin/pos/orders/${orderId}/payments`).send({
-    clientRequestId: "40000000-0000-4000-8000-000000000006", method: "MERCADO_PAGO", amountInCents: 500, reference: "MP-123",
+    clientRequestId: "40000000-0000-4000-8000-000000000006", method: "MERCADO_PAGO_EXTERNAL", amountInCents: 500, reference: "MP-123",
   });
   assert.equal(mercadoPago.status, 201);
   assert.equal(mercadoPago.body.order.balanceInCents, 0);

@@ -22,7 +22,7 @@ export const cashMovementSchema = z.object({
 
 export const paymentSchema = z.object({
   clientRequestId: requestIdSchema,
-  method: z.enum(["CASH", "CARD_EXTERNAL", "MERCADO_PAGO"]),
+  method: z.enum(["CASH", "CARD_EXTERNAL", "MERCADO_PAGO_EXTERNAL"]),
   amountInCents: amountSchema,
   reference: z.string().trim().max(180).optional().nullable(),
   allocations: z.array(z.object({
@@ -40,6 +40,21 @@ export const refundSchema = z.object({
   clientRequestId: requestIdSchema,
   amountInCents: amountSchema,
   note: z.string().trim().min(3).max(300),
+}).strict();
+
+export const mercadoPagoCheckoutSchema = z.object({ clientRequestId: requestIdSchema, amountInCents: amountSchema }).strict();
+
+export const fiscalProfileSchema = z.object({
+  enabled: z.boolean(), provider: z.enum(["DISABLED", "EXTERNAL"]),
+  taxId: z.string().trim().regex(/^\d{11}$/, "Ingresá un CUIT de 11 dígitos"),
+  legalName: z.string().trim().min(2).max(160), taxCondition: z.string().trim().min(2).max(80),
+  pointOfSale: z.coerce.number().int().min(1).max(99999),
+}).strict().refine((value) => !value.enabled || value.provider === "EXTERNAL", "Seleccioná el proveedor fiscal externo");
+
+export const fiscalDocumentSchema = z.object({
+  clientRequestId: requestIdSchema, type: z.enum(["INVOICE", "CREDIT_NOTE"]),
+  relatedDocumentId: idSchema.optional().nullable(), amountInCents: amountSchema.optional(),
+  recipientTaxId: z.string().trim().max(20).optional().nullable(), recipientName: z.string().trim().max(160).optional().nullable(),
 }).strict();
 
 export const posOrderSchema = z.object({

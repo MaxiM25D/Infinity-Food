@@ -17,7 +17,7 @@ Desde la Etapa 8, cada cierre incluye en `docs/STAGE_N.md` un mapa de archivos, 
 | 8 — Operación gastronómica avanzada | COMPLETADA | Modificadores, propinas, división de cuenta, mesas e impresión. |
 | 9 — Inventario y costos | COMPLETADA | Stock por sucursal, recetas, ingredientes, compras y proveedores. |
 | 10 — Reservas y fidelización | COMPLETADA | Recordatorios, señas, lista de espera, CRM y comunicación. |
-| 11 — Pagos y fiscalidad | PENDIENTE | Mercado Pago POS automático, conciliación externa y ARCA/facturación. |
+| 11 — Pagos y fiscalidad | COMPLETADA | Mercado Pago POS automático, conciliación externa y ARCA/facturación. |
 | 12 — Escala horizontal | PENDIENTE | Redis, workers, multirréplica, agregados y observabilidad centralizada. |
 | 13 — Lanzamiento controlado | PENDIENTE | Piloto real, soporte, SLO, runbooks y salida comercial gradual. |
 
@@ -67,11 +67,13 @@ La implementación, rutas, decisiones y validación reproducible están en [STAG
 
 ## Etapa 11 — Pagos y fiscalidad
 
-- Cobro real de Mercado Pago desde POS, separado de la suscripción SaaS.
-- Webhooks e idempotencia de cobros operativos.
-- Conciliación con liquidaciones del proveedor.
-- Facturación fiscal mediante proveedor homologado o integración ARCA.
-- Notas de crédito y cierres exportables para contabilidad.
+- [x] Cobro real de Mercado Pago desde POS, separado de la suscripción SaaS.
+- [x] Webhooks firmados e idempotencia de cobros operativos.
+- [x] Conciliación de bruto, comisiones, neto y liberación con el proveedor.
+- [x] Facturación fiscal mediante adaptador para proveedor homologado.
+- [x] Notas de crédito y comprobantes exportables para contabilidad.
+
+La implementación y sus límites de certificación externa están documentados en [STAGE_11.md](STAGE_11.md).
 
 ## Etapa 12 — Escala horizontal
 

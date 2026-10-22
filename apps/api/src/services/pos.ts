@@ -4,7 +4,7 @@ import { database } from "../database.js";
 import { HttpError } from "../errors.js";
 
 type Transaction = Prisma.TransactionClient;
-type OperationalMethod = Extract<PaymentMethod, "CASH" | "CARD_EXTERNAL" | "MERCADO_PAGO">;
+type OperationalMethod = Extract<PaymentMethod, "CASH" | "CARD_EXTERNAL" | "MERCADO_PAGO_EXTERNAL">;
 
 function isTransactionConflict(error: unknown): boolean {
   const candidate = error as { code?: string; message?: string; meta?: { code?: string; message?: string } };
@@ -58,11 +58,13 @@ export async function posOrderSnapshot(tenantId: string, branchId: string, order
         orderBy: { createdAt: "asc" },
         include: { createdBy: { select: { firstName: true, lastName: true } }, allocations: true },
       },
+      paymentAttempts: { where: { flow: "POS", status: "PENDING" }, select: { amountInCents: true } },
     },
   });
   if (!order) return null;
   const totals = paidTotals(order.operationalPayments);
-  return { ...order, ...totals, balanceInCents: Math.max(0, order.totalInCents - totals.paidInCents) };
+  const pendingProviderInCents = order.paymentAttempts.reduce((sum, attempt) => sum + attempt.amountInCents, 0);
+  return { ...order, ...totals, pendingProviderInCents, balanceInCents: Math.max(0, order.totalInCents - totals.paidInCents - pendingProviderInCents) };
 }
 
 export async function currentCashSession(tenantId: string, branchId: string) {
@@ -161,11 +163,12 @@ export async function registerOrderPayment(input: {
       await transaction.$queryRaw`SELECT "id" FROM "Order" WHERE "tenantId" = ${input.tenantId} AND "branchId" = ${input.branchId} AND "id" = ${input.orderId} FOR UPDATE`;
       const order = await transaction.order.findFirst({
         where: { id: input.orderId, tenantId: input.tenantId, branchId: input.branchId, diningStatus: { notIn: ["CANCELLED"] } },
-        include: { operationalPayments: { select: { kind: true, amountInCents: true } } },
+        include: { operationalPayments: { select: { kind: true, amountInCents: true } }, paymentAttempts: { where: { flow: "POS", status: "PENDING" }, select: { amountInCents: true } } },
       });
       if (!order) throw new HttpError(404, "Pedido no encontrado");
       const totals = paidTotals(order.operationalPayments);
-      const balanceInCents = order.totalInCents - totals.paidInCents;
+      const pendingProviderInCents = order.paymentAttempts.reduce((sum, attempt) => sum + attempt.amountInCents, 0);
+      const balanceInCents = order.totalInCents - totals.paidInCents - pendingProviderInCents;
       if (input.amountInCents > balanceInCents) throw new HttpError(409, `El cobro supera el saldo pendiente de ${balanceInCents} centavos`);
       const session = await openSessionOrThrow(transaction, input.tenantId, input.branchId);
       const allocatedItemIds = [...new Set((input.allocations ?? []).flatMap(({ orderItemId }) => orderItemId ? [orderItemId] : []))];
@@ -307,9 +310,10 @@ export async function closeCashRegister(input: {
     await transaction.$queryRaw`SELECT "id" FROM "CashRegisterSession" WHERE "tenantId" = ${input.tenantId} AND "branchId" = ${input.branchId} AND "id" = ${input.sessionId} FOR UPDATE`;
     const session = await transaction.cashRegisterSession.findFirst({
       where: { id: input.sessionId, tenantId: input.tenantId, branchId: input.branchId, closedAt: null },
-      include: { payments: true, movements: true, cashRegister: true },
+      include: { payments: true, movements: true, cashRegister: true, paymentAttempts: { where: { flow: "POS", status: "PENDING" }, select: { id: true } } },
     });
     if (!session) throw new HttpError(409, "La caja ya está cerrada o no existe");
+    if (session.paymentAttempts.length) throw new HttpError(409, "La caja tiene cobros de Mercado Pago pendientes");
     const cashPayments = session.payments.filter(({ method }) => method === "CASH");
     for (const payment of cashPayments) {
       const matches = session.movements.filter(({ orderPaymentId }) => orderPaymentId === payment.id);

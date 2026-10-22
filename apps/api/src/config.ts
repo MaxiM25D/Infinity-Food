@@ -43,6 +43,8 @@ const environmentSchema = z.object({
   SAAS_BILLING_PROVIDER: z.enum(["disabled", "mercado_pago"]).default("disabled"),
   SAAS_MP_ACCESS_TOKEN: optionalSecret,
   SAAS_MP_WEBHOOK_SECRET: optionalSecret,
+  FISCAL_PROVIDER_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
+  FISCAL_PROVIDER_TOKEN: optionalSecret,
   SMTP_HOST: optionalText,
   SMTP_PORT: z.coerce.number().int().positive().default(465),
   SMTP_SECURE: z.string().default("true").transform((value) => value === "true"),
@@ -85,6 +87,7 @@ const environmentSchema = z.object({
       if (!value[key]) context.addIssue({ code: "custom", path: [key], message: "Es obligatoria para facturar InfinityFood con Mercado Pago" });
     }
   }
+  if (Boolean(value.FISCAL_PROVIDER_URL) !== Boolean(value.FISCAL_PROVIDER_TOKEN)) context.addIssue({ code: "custom", path: ["FISCAL_PROVIDER_URL"], message: "Configurá URL y token del proveedor fiscal" });
 });
 
 export const environment = environmentSchema.parse(process.env);
@@ -94,6 +97,7 @@ export function configurationWarnings(): string[] {
   if (environment.NODE_ENV === "production" && environment.STORAGE_PROVIDER === "local") warnings.push("El almacenamiento local requiere un volumen persistente y backups propios");
   if (environment.NODE_ENV === "production" && !environment.MP_CLIENT_ID) warnings.push("Mercado Pago está deshabilitado porque no hay credenciales configuradas");
   if (environment.NODE_ENV === "production" && environment.SAAS_BILLING_PROVIDER === "disabled") warnings.push("La facturación automática de InfinityFood está deshabilitada");
+  if (environment.NODE_ENV === "production" && !environment.FISCAL_PROVIDER_URL) warnings.push("La emisión fiscal está deshabilitada porque falta un proveedor homologado");
   if (environment.NODE_ENV === "production" && environment.EMAIL_PROVIDER === "smtp") warnings.push("SMTP puede estar bloqueado por el hosting; Resend es el proveedor recomendado");
   if (environment.NODE_ENV === "production" && !environment.METRICS_TOKEN) warnings.push("Las métricas Prometheus están deshabilitadas porque falta METRICS_TOKEN");
   return warnings;

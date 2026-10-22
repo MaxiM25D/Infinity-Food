@@ -37,7 +37,26 @@ type MercadoPagoPayment = {
   external_reference?: string;
   transaction_amount: number;
   currency_id: string;
+  fee_details?: Array<{ amount: number; type?: string }>;
+  money_release_date?: string;
+  date_approved?: string;
 };
+
+function providerFinancials(payment: MercadoPagoPayment) {
+  const grossInCents = Math.round(payment.transaction_amount * 100);
+  const feeInCents = Math.round((payment.fee_details ?? []).reduce((sum, fee) => sum + fee.amount, 0) * 100);
+  const releaseCandidate = payment.money_release_date ? new Date(payment.money_release_date) : null;
+  const releasedAt = releaseCandidate && !Number.isNaN(releaseCandidate.getTime()) ? releaseCandidate : null;
+  return {
+    grossInCents,
+    feeInCents,
+    netInCents: grossInCents - feeInCents,
+    releasedAt,
+    reconciliationStatus: payment.status === "refunded" || payment.status === "charged_back" ? "REFUNDED" as const
+      : payment.status === "approved" && releasedAt && releasedAt <= new Date() ? "RECONCILED" as const
+        : "PENDING" as const,
+  };
+}
 
 function oauthConfiguration() {
   if (!environment.MP_CLIENT_ID || !environment.MP_CLIENT_SECRET) {
@@ -321,6 +340,51 @@ export async function createCheckoutPreference(
   return { preferenceId: preference.id, checkoutUrl: preference.init_point };
 }
 
+export async function createPosMercadoPagoCheckout(input: {
+  tenantId: string; branchId: string; orderId: string; userId: string;
+  clientRequestId: string; amountInCents: number;
+}) {
+  const duplicate = await database.paymentAttempt.findUnique({ where: { idempotencyKey: input.clientRequestId } });
+  if (duplicate) {
+    if (duplicate.tenantId !== input.tenantId || duplicate.branchId !== input.branchId || duplicate.orderId !== input.orderId || duplicate.amountInCents !== input.amountInCents || duplicate.flow !== "POS") throw new HttpError(409, "El identificador del cobro ya fue utilizado");
+    if (duplicate.checkoutUrl) return { attempt: duplicate, checkoutUrl: duplicate.checkoutUrl, sandboxCheckoutUrl: duplicate.sandboxCheckoutUrl, created: false };
+  }
+  const attempt = duplicate ?? await database.$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT "id" FROM "Order" WHERE "tenantId" = ${input.tenantId} AND "branchId" = ${input.branchId} AND "id" = ${input.orderId} FOR UPDATE`;
+    const order = await transaction.order.findFirst({
+      where: { id: input.orderId, tenantId: input.tenantId, branchId: input.branchId, diningStatus: { notIn: ["CANCELLED"] } },
+      include: { operationalPayments: { select: { kind: true, amountInCents: true } }, paymentAttempts: { where: { flow: "POS", status: "PENDING" }, select: { amountInCents: true } } },
+    });
+    if (!order) throw new HttpError(404, "Pedido no encontrado");
+    const paid = order.operationalPayments.reduce((sum, payment) => sum + (payment.kind === "REFUND" ? -payment.amountInCents : payment.amountInCents), 0);
+    const pending = order.paymentAttempts.reduce((sum, item) => sum + item.amountInCents, 0);
+    const available = order.totalInCents - paid - pending;
+    if (input.amountInCents > available) throw new HttpError(409, `El cobro supera el saldo disponible de ${available} centavos`);
+    const cashSession = await transaction.cashRegisterSession.findUnique({ where: { openKey: `${input.tenantId}:${input.branchId}` } });
+    if (!cashSession) throw new HttpError(409, "Abrí la caja antes de iniciar el cobro");
+    return transaction.paymentAttempt.create({ data: {
+      tenantId: input.tenantId, branchId: input.branchId, orderId: input.orderId, cashSessionId: cashSession.id,
+      createdByUserId: input.userId, flow: "POS", provider: "MERCADO_PAGO", idempotencyKey: input.clientRequestId,
+      amountInCents: input.amountInCents, currency: order.currency,
+    } });
+  }, { isolationLevel: "Serializable" });
+  const { accessToken, webhookKey } = await getAccessToken(input.tenantId);
+  try {
+    const preference = await mercadoPagoRequest<{ id: string; init_point: string; sandbox_init_point?: string }>("/checkout/preferences", accessToken, {
+      method: "POST", headers: { "X-Idempotency-Key": attempt.idempotencyKey }, body: JSON.stringify({
+        items: [{ id: input.orderId, title: `Pedido POS #${input.orderId.slice(-6)}`, quantity: 1, currency_id: attempt.currency, unit_price: attempt.amountInCents / 100 }],
+        external_reference: attempt.id, metadata: { payment_attempt_id: attempt.id, flow: "pos" },
+        notification_url: `${environment.API_PUBLIC_URL.replace(/\/$/, "")}/api/payments/mercadopago/webhook/${webhookKey}?source_news=webhooks`,
+      }),
+    });
+    const updated = await database.paymentAttempt.update({ where: { id: attempt.id }, data: { status: "PENDING", statusDetail: null, preferenceId: preference.id, checkoutUrl: preference.init_point, sandboxCheckoutUrl: preference.sandbox_init_point ?? null } });
+    return { attempt: updated, checkoutUrl: updated.checkoutUrl, sandboxCheckoutUrl: updated.sandboxCheckoutUrl, created: true };
+  } catch (error) {
+    await database.paymentAttempt.update({ where: { id: attempt.id }, data: { status: "REJECTED", statusDetail: error instanceof Error ? error.message.slice(0, 300) : "provider_error" } });
+    throw error;
+  }
+}
+
 export function validateMercadoPagoSignature(input: {
   dataId: string;
   xRequestId: string | undefined;
@@ -397,12 +461,13 @@ export async function processMercadoPagoWebhook(
     );
   }
   const status = normalizePaymentStatus(payment.status);
+  const financials = providerFinancials(payment);
 
   await database.$transaction(async (transaction) => {
     await transaction.$queryRaw`SELECT id FROM "Order" WHERE id = ${attempt.orderId} AND "tenantId" = ${attempt.tenantId} FOR UPDATE`;
     const current = await transaction.order.findFirst({
       where: { id: attempt.orderId, tenantId: attempt.tenantId },
-      include: { items: { select: { productId: true, quantity: true } } },
+      include: { items: { select: { productId: true, quantity: true } }, operationalPayments: { include: { refunds: { select: { amountInCents: true } } } } },
     });
     if (!current) throw new HttpError(404, "Pedido no encontrado");
     await transaction.paymentAttempt.update({
@@ -414,6 +479,42 @@ export async function processMercadoPagoWebhook(
         status,
       },
     });
+
+    if (attempt.flow === "POS") {
+      if (!attempt.branchId || !attempt.cashSessionId || !attempt.createdByUserId) throw new HttpError(409, "El intento POS no tiene contexto operativo completo");
+      const existingPayment = await transaction.orderPayment.findUnique({ where: { paymentAttemptId: attempt.id } });
+      if (status === "APPROVED" && !existingPayment) {
+        const netPaid = current.operationalPayments.reduce((sum, item) => sum + (item.kind === "REFUND" ? -item.amountInCents : item.amountInCents), 0);
+        if (attempt.amountInCents > current.totalInCents - netPaid) {
+          await transaction.paymentAttempt.update({ where: { id: attempt.id }, data: { statusDetail: "approved_amount_exceeds_open_balance" } });
+          return;
+        }
+        const created = await transaction.orderPayment.create({ data: {
+          tenantId: attempt.tenantId, branchId: attempt.branchId, orderId: attempt.orderId, cashSessionId: attempt.cashSessionId,
+          kind: "PAYMENT", method: "MERCADO_PAGO", amountInCents: attempt.amountInCents, clientRequestId: `mp:${attempt.id}`,
+          reference: String(payment.id), createdByUserId: attempt.createdByUserId, paymentAttemptId: attempt.id,
+          providerPaymentId: String(payment.id), providerStatus: payment.status, providerFeeInCents: financials.feeInCents,
+          providerNetInCents: financials.netInCents, providerReleasedAt: financials.releasedAt,
+          reconciliationStatus: financials.reconciliationStatus,
+        } });
+        const nextPaid = netPaid + created.amountInCents;
+        await transaction.order.update({ where: { id: current.id }, data: { paymentMethod: "MERCADO_PAGO", paymentStatus: nextPaid >= current.totalInCents ? "APPROVED" : "PARTIALLY_PAID" } });
+        await transaction.diningOrderAudit.create({ data: { eventId: `mp:${attempt.id}`, tenantId: attempt.tenantId, branchId: attempt.branchId, orderId: current.id, actorUserId: attempt.createdByUserId, action: "PAYMENT_REGISTERED", entityType: "OrderPayment", entityId: created.id, payload: { provider: "MERCADO_PAGO", providerPaymentId: String(payment.id), feeInCents: financials.feeInCents, netInCents: financials.netInCents } } });
+      } else if (existingPayment) {
+        await transaction.orderPayment.update({ where: { id: existingPayment.id }, data: { providerStatus: payment.status, providerFeeInCents: financials.feeInCents, providerNetInCents: financials.netInCents, providerReleasedAt: financials.releasedAt, reconciliationStatus: financials.reconciliationStatus } });
+      }
+      if (status === "REFUNDED" && existingPayment) {
+        const original = current.operationalPayments.find(({ id }) => id === existingPayment.id);
+        const alreadyRefunded = original?.refunds.reduce((sum, item) => sum + item.amountInCents, 0) ?? 0;
+        const refundable = existingPayment.amountInCents - alreadyRefunded;
+        if (refundable > 0) {
+          await transaction.orderPayment.create({ data: { tenantId: attempt.tenantId, branchId: attempt.branchId, orderId: attempt.orderId, cashSessionId: attempt.cashSessionId, kind: "REFUND", method: "MERCADO_PAGO", amountInCents: refundable, clientRequestId: `mp-refund:${payment.id}`, reference: "Devolución confirmada por Mercado Pago", refundOfId: existingPayment.id, createdByUserId: attempt.createdByUserId, providerPaymentId: `refund:${payment.id}`, providerStatus: payment.status, reconciliationStatus: "REFUNDED" } });
+          const paidAfterRefund = current.operationalPayments.reduce((sum, item) => sum + (item.kind === "REFUND" ? -item.amountInCents : item.amountInCents), 0) - refundable;
+          await transaction.order.update({ where: { id: current.id }, data: { paymentStatus: paidAfterRefund <= 0 ? "REFUNDED" : paidAfterRefund < current.totalInCents ? "PARTIALLY_PAID" : "APPROVED" } });
+        }
+      }
+      return;
+    }
 
     if (status === "APPROVED") {
       const statusChanged = current.status === "PENDING";
@@ -444,7 +545,7 @@ export async function processMercadoPagoWebhook(
     });
   });
 
-  if (status === "APPROVED") {
+  if (status === "APPROVED" && attempt.flow === "STOREFRONT") {
     await dispatchTenantNotification({
       tenantId: attempt.tenantId,
       event: "ORDER_PAID",
@@ -454,7 +555,7 @@ export async function processMercadoPagoWebhook(
     });
   }
 
-  if (["CANCELLED", "REFUNDED"].includes(status)) {
+  if (attempt.flow === "STOREFRONT" && ["CANCELLED", "REFUNDED"].includes(status)) {
     await releaseReservedOrder(
       attempt.tenantId,
       attempt.orderId,
@@ -462,4 +563,30 @@ export async function processMercadoPagoWebhook(
       true,
     );
   }
+}
+
+export async function syncOperationalMercadoPagoPayment(input: { tenantId: string; branchId: string; paymentId: string }) {
+  const operational = await database.orderPayment.findFirst({ where: { id: input.paymentId, tenantId: input.tenantId, branchId: input.branchId, kind: "PAYMENT", method: "MERCADO_PAGO", providerPaymentId: { not: null } }, include: { paymentAttempt: { select: { currency: true } } } });
+  if (!operational?.providerPaymentId) throw new HttpError(404, "Cobro automático de Mercado Pago no encontrado");
+  const connection = await database.mercadoPagoConnection.findUnique({ where: { tenantId: input.tenantId } });
+  if (!connection) throw new HttpError(409, "La tienda todavía no conectó Mercado Pago");
+  const { accessToken } = await getAccessToken(input.tenantId);
+  const payment = await mercadoPagoRequest<MercadoPagoPayment>(`/v1/payments/${encodeURIComponent(operational.providerPaymentId)}`, accessToken);
+  assertPaymentRecipient(payment.collector_id, connection.mercadoPagoUserId);
+  const financials = providerFinancials(payment);
+  const amountMatches = financials.grossInCents === operational.amountInCents && payment.currency_id === (operational.paymentAttempt?.currency ?? "ARS");
+  return database.orderPayment.update({ where: { id: operational.id }, data: {
+    providerStatus: payment.status, providerFeeInCents: financials.feeInCents, providerNetInCents: financials.netInCents,
+    providerReleasedAt: financials.releasedAt,
+    reconciliationStatus: amountMatches ? financials.reconciliationStatus : "MISMATCH",
+  } });
+}
+
+export async function refundOperationalMercadoPagoPayment(input: { tenantId: string; branchId: string; paymentId: string; amountInCents: number; clientRequestId: string }) {
+  const operational = await database.orderPayment.findFirst({ where: { id: input.paymentId, tenantId: input.tenantId, branchId: input.branchId, kind: "PAYMENT", method: "MERCADO_PAGO", providerPaymentId: { not: null } }, include: { refunds: { select: { amountInCents: true } } } });
+  if (!operational?.providerPaymentId) throw new HttpError(404, "Cobro automático de Mercado Pago no encontrado");
+  const refunded = operational.refunds.reduce((sum, item) => sum + item.amountInCents, 0);
+  if (input.amountInCents > operational.amountInCents - refunded) throw new HttpError(409, "La devolución supera el importe reintegrable");
+  const { accessToken } = await getAccessToken(input.tenantId);
+  await mercadoPagoRequest(`/v1/payments/${encodeURIComponent(operational.providerPaymentId)}/refunds`, accessToken, { method: "POST", headers: { "X-Idempotency-Key": input.clientRequestId }, body: JSON.stringify({ amount: input.amountInCents / 100 }) });
 }

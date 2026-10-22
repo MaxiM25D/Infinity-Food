@@ -4,7 +4,7 @@ SaaS gastronómico multi-tenant en evolución incremental desde el core de Infin
 
 ## Seguimiento
 
-El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 10 están completas; la siguiente etapa planificada es pagos y fiscalidad.
+El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 11 están completas; la siguiente etapa planificada es escala horizontal.
 
 ## Estructura
 
@@ -98,6 +98,8 @@ El KDS está disponible en `/kds`. Socket.IO notifica cambios, pero cada conexi�
 ## POS, pagos operativos y caja
 
 El panel **POS y caja** permite abrir un turno por sucursal, generar pedidos de mostrador o mesa, registrar cobros parciales en efectivo, tarjeta externa o Mercado Pago y realizar devoluciones explícitas. Cada cobro usa un UUID idempotente y el servidor bloquea el pedido antes de validar el saldo, por lo que los reintentos y cobros concurrentes no pueden exceder el total.
+
+Mercado Pago automático crea un checkout desde el POS y acredita el cobro únicamente mediante un webhook firmado que vuelve a consultar el pago y valida receptor, importe y moneda. El panel concilia bruto, comisión, neto y liberación; las devoluciones automáticas se envían al proveedor antes de registrarse localmente. La capa fiscal emite facturas y notas de crédito mediante un adaptador HTTP para proveedor homologado y permite exportar el libro en CSV. Ver [docs/STAGE_11.md](docs/STAGE_11.md).
 
 ## Operación gastronómica avanzada
 
