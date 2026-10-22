@@ -5,6 +5,7 @@ import { database } from "../../database.js";
 import { HttpError } from "../../errors.js";
 import { getAuthContext, requireRoles, requireSession } from "../auth/session.js";
 import { requireWritableSubscription } from "../saas/limits.js";
+import { consumeRecipeForOrderItems, reverseOrderIngredientConsumption } from "../../services/inventory.js";
 
 const idSchema = z.string().trim().min(1).max(100);
 const saleSchema = z.object({
@@ -181,6 +182,8 @@ managementRouter.post("/sales", async (request, response) => {
       tenantId: auth.tenant.id, orderId: created.id, productId: product.id, variantId: variant?.id ?? null, sku: variant?.sku ?? product.sku,
       productName: product.name, variantName: variant?.name ?? null, quantity, unitPriceInCents, subtotalInCents: quantity * unitPriceInCents,
     })) });
+    const ingredientOrderItems = await transaction.orderItem.findMany({ where: { tenantId: auth.tenant.id, orderId: created.id }, select: { id: true, productId: true, quantity: true } });
+    await consumeRecipeForOrderItems(transaction, { tenantId: auth.tenant.id, branchId: auth.branch.id, orderId: created.id, userId: auth.user.id, items: ingredientOrderItems });
     await transaction.orderStatusHistory.create({ data: { tenantId: auth.tenant.id, orderId: created.id, status: "DELIVERED", changedByUserId: auth.user.id, note: "Venta registrada en el local" } });
 
     for (const line of lines) {
@@ -223,6 +226,7 @@ managementRouter.post("/sales/:id/cancel", canManageInventory, async (request, r
         : await transaction.product.update({ where: { tenantId_id: { tenantId: auth.tenant.id, id: item.productId } }, data: { stock: { increment: item.quantity } }, select: { stock: true } });
       await transaction.stockMovement.create({ data: { tenantId: auth.tenant.id, productId: item.productId, variantId: item.variantId, orderId: sale.id, changedByUserId: auth.user.id, type: "LOCAL_SALE_CANCELLED", quantityDelta: item.quantity, stockAfter: changed.stock, note: `Anulación de venta local #${sale.number}` } });
     }
+    await reverseOrderIngredientConsumption(transaction, { tenantId: auth.tenant.id, branchId: auth.branch.id, orderId: sale.id, userId: auth.user.id });
     await transaction.order.update({ where: { tenantId_id: { tenantId: auth.tenant.id, id } }, data: { status: "CANCELLED", paymentStatus: "REFUNDED", stockStatus: "RELEASED" } });
     await transaction.orderStatusHistory.create({ data: { tenantId: auth.tenant.id, orderId: id, status: "CANCELLED", changedByUserId: auth.user.id, note: "Venta local anulada; el reintegro de dinero se gestiona por fuera de InfinityFood" } });
   });

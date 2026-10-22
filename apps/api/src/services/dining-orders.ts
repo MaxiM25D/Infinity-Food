@@ -4,6 +4,7 @@ import type { Prisma } from "@infinityshop/database";
 
 import { database } from "../database.js";
 import { HttpError } from "../errors.js";
+import { consumeRecipeForOrderItems } from "./inventory.js";
 
 type DiningItemInput = {
   productId: string;
@@ -110,6 +111,7 @@ async function createRound(
   const menuByProduct = new Map(menuItems.map((item) => [item.productId, item]));
   const ticketItems = new Map<string, string[]>();
   const createdItems = new Map<string, { productName: string; quantity: number; notes: string | null; preparationPoint: string | null; modifiers: string[] }>();
+  const inventoryItems: Array<{ id: string; productId: string | null; quantity: number }> = [];
   let subtotal = 0;
   for (const requested of input.items) {
     const menuItem = menuByProduct.get(requested.productId)!;
@@ -139,6 +141,7 @@ async function createRound(
         preparationPoint: requested.preparationPoint || null,
       },
     });
+    inventoryItems.push({ id: item.id, productId: item.productId, quantity: item.quantity });
     if (selected.length) {
       await transaction.orderItemModifier.createMany({
         data: selected.map((entry) => ({
@@ -161,6 +164,8 @@ async function createRound(
     const station = assignment?.station.active ? assignment.station : defaultStation;
     ticketItems.set(station.id, [...(ticketItems.get(station.id) ?? []), item.id]);
   }
+
+  await consumeRecipeForOrderItems(transaction, { tenantId: input.tenantId, branchId: input.branchId, orderId: input.orderId, userId: input.userId, items: inventoryItems });
 
   for (const [stationId, itemIds] of ticketItems) {
     const ticket = await transaction.kitchenTicket.create({

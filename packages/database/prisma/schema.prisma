@@ -201,6 +201,30 @@ enum StockMovementType {
   MANUAL_ADJUSTMENT
 }
 
+enum IngredientUnit {
+  GRAM
+  MILLILITER
+  UNIT
+}
+
+enum IngredientMovementType {
+  PURCHASE_RECEIPT
+  SALE_CONSUMPTION
+  SALE_REVERSAL
+  WASTE
+  MANUAL_ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
 enum StockStatus {
   RESERVED
   COMMITTED
@@ -279,6 +303,16 @@ model Tenant {
   notificationLogs        NotificationLog[]
   analyticsEvents         AnalyticsEvent[]
   stockMovements          StockMovement[]
+  inventoryLocations      InventoryLocation[]
+  ingredients             Ingredient[]
+  ingredientStocks        IngredientStock[]
+  recipeIngredients       RecipeIngredient[]
+  ingredientMovements     IngredientMovement[]
+  suppliers               Supplier[]
+  purchaseOrders          PurchaseOrder[]
+  purchaseOrderItems      PurchaseOrderItem[]
+  purchaseReceipts        PurchaseReceipt[]
+  purchaseReceiptItems    PurchaseReceiptItem[]
   kitchenStations         KitchenStation[]
   orderRounds             OrderRound[]
   kitchenTickets          KitchenTicket[]
@@ -324,6 +358,9 @@ model User {
   orderStatusChanges      OrderStatusHistory[]
   localSales              Order[]                  @relation("LocalSaleSeller")
   stockMovements          StockMovement[]
+  ingredientMovements     IngredientMovement[]
+  createdPurchaseOrders   PurchaseOrder[]          @relation("PurchaseOrderCreatedBy")
+  purchaseReceipts        PurchaseReceipt[]
   openedDiningOrders      Order[]                  @relation("DiningOrderOpener")
   submittedOrderRounds    OrderRound[]
   claimedKitchenTickets   KitchenTicket[]
@@ -557,6 +594,11 @@ model Branch {
   orderAdjustments     OrderAdjustment[]
   paymentAllocations   OrderPaymentAllocation[]
   printJobs            PrintJob[]
+  inventoryLocations   InventoryLocation[]
+  ingredientStocks     IngredientStock[]
+  ingredientMovements  IngredientMovement[]
+  purchaseOrders       PurchaseOrder[]
+  purchaseReceipts     PurchaseReceipt[]
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
   menuModifierOptions  MenuModifierOption[]
@@ -746,6 +788,7 @@ model Product {
   branchMenuItems        BranchMenuItem[]
   stationAssignments     KitchenStationMenuItem[]
   modifierGroups         MenuModifierGroup[]
+  recipeIngredients      RecipeIngredient[]
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 
@@ -1009,6 +1052,7 @@ model Order {
   paymentAllocations           OrderPaymentAllocation[]
   printJobs                    PrintJob[]
   stockMovements               StockMovement[]
+  ingredientMovements          IngredientMovement[]
   createdAt                    DateTime                 @default(now())
   updatedAt                    DateTime                 @updatedAt
 
@@ -1048,6 +1092,225 @@ model StockMovement {
   @@index([tenantId, variantId, createdAt])
   @@index([tenantId, orderId])
   @@index([changedByUserId])
+}
+
+model InventoryLocation {
+  id             String               @id @default(cuid())
+  tenantId       String
+  branchId       String
+  code           String
+  name           String
+  isDefault      Boolean              @default(false)
+  active         Boolean              @default(true)
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch               @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  stocks         IngredientStock[]
+  movements      IngredientMovement[]
+  purchaseOrders PurchaseOrder[]
+  receipts       PurchaseReceipt[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([tenantId, branchId, code])
+  @@unique([tenantId, branchId, id])
+  @@index([tenantId, branchId, active])
+}
+
+model Ingredient {
+  id            String                @id @default(cuid())
+  tenantId      String
+  code          String
+  name          String
+  unit          IngredientUnit
+  active        Boolean               @default(true)
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stocks        IngredientStock[]
+  recipes       RecipeIngredient[]
+  movements     IngredientMovement[]
+  purchaseItems PurchaseOrderItem[]
+  receiptItems  PurchaseReceiptItem[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, id])
+  @@index([tenantId, active, name])
+}
+
+model IngredientStock {
+  tenantId                    String
+  branchId                    String
+  locationId                  String
+  ingredientId                String
+  quantity                    Int               @default(0)
+  reorderPoint                Int               @default(0)
+  averageCostPerThousandCents Int               @default(0)
+  tenant                      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                      Branch            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  location                    InventoryLocation @relation(fields: [tenantId, branchId, locationId], references: [tenantId, branchId, id], onDelete: Cascade)
+  ingredient                  Ingredient        @relation(fields: [tenantId, ingredientId], references: [tenantId, id], onDelete: Cascade)
+  createdAt                   DateTime          @default(now())
+  updatedAt                   DateTime          @updatedAt
+
+  @@id([tenantId, branchId, locationId, ingredientId])
+  @@index([tenantId, branchId, ingredientId])
+  @@index([tenantId, branchId, quantity])
+}
+
+model RecipeIngredient {
+  tenantId     String
+  productId    String
+  ingredientId String
+  quantity     Int
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [tenantId, ingredientId], references: [tenantId, id], onDelete: Restrict)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@id([tenantId, productId, ingredientId])
+  @@index([tenantId, ingredientId])
+}
+
+model IngredientMovement {
+  id                String                 @id @default(cuid())
+  tenantId          String
+  branchId          String
+  locationId        String
+  ingredientId      String
+  orderId           String?
+  orderItemId       String?
+  purchaseReceiptId String?
+  changedByUserId   String?
+  type              IngredientMovementType
+  quantityDelta     Int
+  quantityAfter     Int
+  costTotalInCents  Int?
+  clientRequestId   String?
+  note              String?
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch            Branch                 @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  location          InventoryLocation      @relation(fields: [tenantId, branchId, locationId], references: [tenantId, branchId, id], onDelete: Restrict)
+  ingredient        Ingredient             @relation(fields: [tenantId, ingredientId], references: [tenantId, id], onDelete: Restrict)
+  order             Order?                 @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  orderItem         OrderItem?             @relation(fields: [tenantId, orderItemId], references: [tenantId, id], onDelete: Cascade)
+  purchaseReceipt   PurchaseReceipt?       @relation(fields: [tenantId, purchaseReceiptId], references: [tenantId, id], onDelete: Cascade)
+  changedBy         User?                  @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime               @default(now())
+
+  @@unique([tenantId, clientRequestId])
+  @@index([tenantId, branchId, locationId, ingredientId, createdAt])
+  @@index([tenantId, orderId])
+  @@index([tenantId, orderItemId])
+  @@index([tenantId, purchaseReceiptId])
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  tenantId       String
+  name           String
+  taxId          String?
+  email          String?
+  phone          String?
+  notes          String?
+  active         Boolean         @default(true)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, id])
+  @@index([tenantId, active])
+}
+
+model PurchaseOrder {
+  id              String              @id @default(cuid())
+  tenantId        String
+  branchId        String
+  locationId      String
+  supplierId      String
+  number          Int
+  status          PurchaseOrderStatus @default(DRAFT)
+  expectedAt      DateTime?
+  notes           String?
+  createdByUserId String
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  location        InventoryLocation   @relation(fields: [tenantId, branchId, locationId], references: [tenantId, branchId, id], onDelete: Restrict)
+  supplier        Supplier            @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  createdBy       User                @relation("PurchaseOrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items           PurchaseOrderItem[]
+  receipts        PurchaseReceipt[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([tenantId, branchId, number])
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, status, createdAt])
+  @@index([tenantId, supplierId])
+}
+
+model PurchaseOrderItem {
+  id                         String                @id @default(cuid())
+  tenantId                   String
+  purchaseOrderId            String
+  ingredientId               String
+  orderedQuantity            Int
+  receivedQuantity           Int                   @default(0)
+  unitCostPerThousandInCents Int
+  tenant                     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseOrder              PurchaseOrder         @relation(fields: [tenantId, purchaseOrderId], references: [tenantId, id], onDelete: Cascade)
+  ingredient                 Ingredient            @relation(fields: [tenantId, ingredientId], references: [tenantId, id], onDelete: Restrict)
+  receiptItems               PurchaseReceiptItem[]
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+
+  @@unique([tenantId, purchaseOrderId, ingredientId])
+  @@unique([tenantId, id])
+  @@index([tenantId, ingredientId])
+}
+
+model PurchaseReceipt {
+  id               String                @id @default(cuid())
+  tenantId         String
+  branchId         String
+  locationId       String
+  purchaseOrderId  String
+  clientRequestId  String
+  receivedByUserId String
+  note             String?
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch                @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  location         InventoryLocation     @relation(fields: [tenantId, branchId, locationId], references: [tenantId, branchId, id], onDelete: Restrict)
+  purchaseOrder    PurchaseOrder         @relation(fields: [tenantId, purchaseOrderId], references: [tenantId, id], onDelete: Cascade)
+  receivedBy       User                  @relation(fields: [receivedByUserId], references: [id], onDelete: Restrict)
+  items            PurchaseReceiptItem[]
+  movements        IngredientMovement[]
+  createdAt        DateTime              @default(now())
+
+  @@unique([tenantId, clientRequestId])
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, createdAt])
+  @@index([tenantId, purchaseOrderId])
+}
+
+model PurchaseReceiptItem {
+  id                  String            @id @default(cuid())
+  tenantId            String
+  receiptId           String
+  purchaseOrderItemId String
+  ingredientId        String
+  quantity            Int
+  costInCents         Int
+  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receipt             PurchaseReceipt   @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Cascade)
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [tenantId, purchaseOrderItemId], references: [tenantId, id], onDelete: Restrict)
+  ingredient          Ingredient        @relation(fields: [tenantId, ingredientId], references: [tenantId, id], onDelete: Restrict)
+  createdAt           DateTime          @default(now())
+
+  @@unique([tenantId, receiptId, purchaseOrderItemId])
+  @@index([tenantId, ingredientId])
 }
 
 model MercadoPagoConnection {
@@ -1275,29 +1538,30 @@ model OrderStatusHistory {
 }
 
 model OrderItem {
-  id                 String                   @id @default(cuid())
-  tenantId           String
-  orderId            String
-  productId          String?
-  variantId          String?
-  roundId            String?
-  sku                String
-  productName        String
-  variantName        String?
-  quantity           Int
-  unitPriceInCents   Int
-  subtotalInCents    Int
-  notes              String?
-  preparationPoint   String?
-  order              Order                    @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
-  product            Product?                 @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
-  variant            ProductVariant?          @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
-  round              OrderRound?              @relation(fields: [tenantId, orderId, roundId], references: [tenantId, orderId, id], onDelete: Restrict)
-  kitchenTicketItem  KitchenTicketItem?
-  modifiers          OrderItemModifier[]
-  adjustments        OrderAdjustment[]
-  paymentAllocations OrderPaymentAllocation[]
-  createdAt          DateTime                 @default(now())
+  id                  String                   @id @default(cuid())
+  tenantId            String
+  orderId             String
+  productId           String?
+  variantId           String?
+  roundId             String?
+  sku                 String
+  productName         String
+  variantName         String?
+  quantity            Int
+  unitPriceInCents    Int
+  subtotalInCents     Int
+  notes               String?
+  preparationPoint    String?
+  order               Order                    @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  product             Product?                 @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  variant             ProductVariant?          @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+  round               OrderRound?              @relation(fields: [tenantId, orderId, roundId], references: [tenantId, orderId, id], onDelete: Restrict)
+  kitchenTicketItem   KitchenTicketItem?
+  modifiers           OrderItemModifier[]
+  adjustments         OrderAdjustment[]
+  paymentAllocations  OrderPaymentAllocation[]
+  ingredientMovements IngredientMovement[]
+  createdAt           DateTime                 @default(now())
 
   @@unique([tenantId, id])
   @@index([tenantId, orderId])

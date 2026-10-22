@@ -15,7 +15,7 @@ Desde la Etapa 8, cada cierre incluye en `docs/STAGE_N.md` un mapa de archivos, 
 | 6 — Reportes y endurecimiento | COMPLETADA | Métricas reconciliables, E2E, carga, observabilidad y recuperación. |
 | 7 — Estabilización y piloto | COMPLETADA | Seguridad, baseline versionable, branding, E2E operativo y staging reproducible. |
 | 8 — Operación gastronómica avanzada | COMPLETADA | Modificadores, propinas, división de cuenta, mesas e impresión. |
-| 9 — Inventario y costos | PENDIENTE | Stock por sucursal, recetas, ingredientes, compras y proveedores. |
+| 9 — Inventario y costos | COMPLETADA | Stock por sucursal, recetas, ingredientes, compras y proveedores. |
 | 10 — Reservas y fidelización | PENDIENTE | Recordatorios, señas, lista de espera, CRM y comunicación. |
 | 11 — Pagos y fiscalidad | PENDIENTE | Mercado Pago POS automático, conciliación externa y ARCA/facturación. |
 | 12 — Escala horizontal | PENDIENTE | Redis, workers, multirréplica, agregados y observabilidad centralizada. |
@@ -47,11 +47,13 @@ La integración ESC/POS concreta se configura por modelo de impresora en cada in
 
 ## Etapa 9 — Inventario y costos
 
-- Ingredientes, unidades y recetas.
-- Stock y movimientos por sucursal/depósito.
-- Consumo automático por venta y merma.
-- Costos, margen y alertas de reposición.
-- Proveedores, órdenes de compra y recepción.
+- [x] Ingredientes, unidades y recetas.
+- [x] Stock y movimientos por sucursal/depósito.
+- [x] Consumo automático por venta y merma.
+- [x] Costos, margen y alertas de reposición.
+- [x] Proveedores, órdenes de compra y recepción.
+
+La implementación, las rutas y la evidencia reproducible están en [STAGE_9.md](STAGE_9.md).
 
 ## Etapa 10 — Reservas y fidelización
 

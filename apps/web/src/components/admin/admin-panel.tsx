@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   PackageSearch,
+  Warehouse,
   ShieldCheck,
   ShoppingBag,
   Store,
@@ -49,6 +50,7 @@ import { PosView } from "./pos-view";
 import { ReservationsView } from "./reservations-view";
 import { ReportsView } from "./reports-view";
 import { AdvancedView } from "./advanced-view";
+import { InventoryView } from "./inventory-view";
 import type { Role } from "./types";
 import type { BranchContext } from "@infinityfood/contracts";
 
@@ -65,6 +67,7 @@ export type AdminTab =
   | "orders"
   | "customers"
   | "management"
+  | "inventory"
   | "growth"
   | "team"
   | "plan"
@@ -106,6 +109,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
     label: "Operación",
     items: [
       { id: "management", label: "Gestión", description: "Ventas del local y stock", icon: Calculator },
+      { id: "inventory", label: "Inventario", description: "Ingredientes, recetas y compras", icon: Warehouse },
       { id: "pos", label: "POS y caja", description: "Cobros, turnos y movimientos", icon: CircleDollarSign },
       { id: "reservations", label: "Reservas", description: "Disponibilidad, agenda y no-show", icon: CalendarDays },
       { id: "reports", label: "Reportes", description: "Ventas, tiempos y ocupación", icon: BarChart3 },
@@ -230,6 +234,7 @@ export function AdminPanel({
     orders: <OrdersView role={session.role} />,
     customers: <CustomersView />,
     management: <ManagementView role={session.role} />,
+    inventory: <InventoryView />,
     growth: <GrowthView onNavigate={selectTab} role={session.role} />,
     team: <TeamView onOpenPlan={() => selectTab("plan")} role={session.role} />,
     plan: <PlanView onOpenStore={openStoreSection} role={session.role} />,

@@ -39,6 +39,21 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   await expectStatus(productResponse, 201);
   const product = (await productResponse.json()).product as { id: string };
 
+  const inventoryOverview = await page.request.get("/api/admin/inventory/overview");
+  await expectStatus(inventoryOverview, 200);
+  const mainLocation = (await inventoryOverview.json()).locations[0] as { id: string };
+  const ingredientResponse = await page.request.post("/api/admin/inventory/ingredients", {
+    data: { code: `CARNE-${unique}`, name: "Carne E2E", unit: "GRAM" },
+  });
+  await expectStatus(ingredientResponse, 201);
+  const ingredient = (await ingredientResponse.json()).ingredient as { id: string };
+  await expectStatus(await page.request.put(`/api/admin/inventory/ingredients/${ingredient.id}/stocks/${mainLocation.id}`, {
+    data: { quantity: 5000, reorderPoint: 500, averageCostPerThousandCents: 900000, note: "Inventario E2E" },
+  }), 200);
+  await expectStatus(await page.request.put(`/api/admin/inventory/recipes/${product.id}`, {
+    data: { ingredients: [{ ingredientId: ingredient.id, quantity: 250 }] },
+  }), 200);
+
   const modifiersResponse = await page.request.put(`/api/admin/advanced/menu-items/${product.id}/modifiers`, {
     data: {
       groups: [{
@@ -87,6 +102,8 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   );
   await expectStatus(repeatedQrOrder, 200);
   expect((await repeatedQrOrder.json()).created).toBe(false);
+  let ingredientStock = await page.request.get("/api/admin/inventory/overview");
+  expect((await ingredientStock.json()).ingredients.find((item: { id: string }) => item.id === ingredient.id).stocks[0].quantity).toBe(4500);
 
   const kdsSnapshot = await page.request.get(`/api/admin/dining/kds/${stations[0]?.id}/tickets`);
   await expectStatus(kdsSnapshot, 200);
@@ -126,6 +143,8 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   await expectStatus(posOrderResponse, 201);
   const posOrder = (await posOrderResponse.json()).order as { id: string; totalInCents: number; items: Array<{ id: string }> };
   expect(posOrder.totalInCents).toBe(3200);
+  ingredientStock = await page.request.get("/api/admin/inventory/overview");
+  expect((await ingredientStock.json()).ingredients.find((item: { id: string }) => item.id === ingredient.id).stocks[0].quantity).toBe(4250);
 
   const tipResponse = await page.request.post(`/api/admin/advanced/orders/${posOrder.id}/adjustments`, {
     data: { clientRequestId: crypto.randomUUID(), type: "TIP", label: "Propina", reason: "Servicio E2E", amountInCents: 100 },
@@ -164,6 +183,9 @@ test("operacion gastronomica completa: QR, KDS, POS, caja y reservas", async ({ 
   await expect(page.getByRole("heading", { name: "POS, pagos y caja" })).toBeVisible();
   await page.goto("/admin?tab=advanced");
   await expect(page.getByRole("heading", { name: "Operación gastronómica avanzada" })).toBeVisible();
+  await page.goto("/admin?tab=inventory");
+  await expect(page.getByRole("heading", { name: "Ingredientes, recetas y compras" })).toBeVisible();
+  await expect(page.getByText("Carne E2E").first()).toBeVisible();
 
   const schedulesResponse = await page.request.put("/api/admin/reservations/schedules", {
     data: {

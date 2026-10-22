@@ -34,6 +34,7 @@ branchRouter.post("/", requireRoles("OWNER", "ADMIN"), requireWritableSubscripti
   try {
     const branch = await database.$transaction(async (transaction) => {
       const created = await transaction.branch.create({ data: { tenantId: auth.tenant.id, ...input } });
+      await transaction.inventoryLocation.create({ data: { tenantId: auth.tenant.id, branchId: created.id, code: "MAIN", name: "Depósito principal", isDefault: true } });
       const station = await transaction.kitchenStation.create({ data: { tenantId: auth.tenant.id, branchId: created.id, name: "Cocina", type: "KITCHEN" } });
       const products = await transaction.product.findMany({
         where: { tenantId: auth.tenant.id },

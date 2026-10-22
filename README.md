@@ -103,6 +103,8 @@ El panel **POS y caja** permite abrir un turno por sucursal, generar pedidos de 
 
 La **Carta** permite configurar extras y modificadores por sucursal. El pedido QR valida las selecciones obligatorias, suma sus precios y conserva snapshots históricos; notas, extras y punto de cocción llegan al KDS. El panel **Operación avanzada** incorpora unión/separación y transferencia de mesas, propinas, descuentos, cortesías, división de cuenta por importe, ítem o comensal y una cola persistente de impresión para cocina y caja. Ver [docs/STAGE_8.md](docs/STAGE_8.md).
 
+El panel **Inventario** administra ingredientes, recetas, depósitos, mermas, proveedores, órdenes de compra y recepciones. Los pedidos QR, de mozo y POS descuentan las recetas en la misma transacción y exponen costos, márgenes, alertas y trazabilidad por sucursal. Ver [docs/STAGE_9.md](docs/STAGE_9.md).
+
 ## Reservas
 
 El panel **Reservas** administra horarios semanales, disponibilidad por capacidad, holds temporales, confirmaciones, cancelaciones y no-show en la zona horaria de cada sucursal. PostgreSQL impide solapamientos activos para una misma mesa incluso con solicitudes concurrentes. La experiencia pública está disponible en `/reservas/:restaurantSlug/:branchSlug` y los cambios operativos se propagan por Socket.IO. Ver [docs/STAGE_5.md](docs/STAGE_5.md).

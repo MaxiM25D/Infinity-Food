@@ -130,6 +130,7 @@ authRouter.post("/register", authLimiter, async (request, response) => {
         },
       });
       const primaryBranch = await transaction.branch.findFirstOrThrow({ where: { tenantId: tenant.id, isPrimary: true }, select: { id: true } });
+      await transaction.inventoryLocation.create({ data: { tenantId: tenant.id, branchId: primaryBranch.id, code: "MAIN", name: "Depósito principal", isDefault: true } });
       await transaction.kitchenStation.create({ data: { tenantId: tenant.id, branchId: primaryBranch.id, name: "Cocina", type: "KITCHEN" } });
 
       return { user, tenant };
@@ -572,6 +573,7 @@ authRouter.post("/tenants", requireSession, async (request, response) => {
         where: { tenantId: created.id, isPrimary: true },
         select: { id: true },
       });
+      await transaction.inventoryLocation.create({ data: { tenantId: created.id, branchId: primaryBranch.id, code: "MAIN", name: "Depósito principal", isDefault: true } });
       await transaction.kitchenStation.create({ data: { tenantId: created.id, branchId: primaryBranch.id, name: "Cocina", type: "KITCHEN" } });
       await transaction.authSession.update({
         where: { id: auth.sessionId },

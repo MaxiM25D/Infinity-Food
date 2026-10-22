@@ -13,6 +13,7 @@ const tabs = new Set<AdminTab>([
   "orders",
   "customers",
   "management",
+  "inventory",
   "growth",
   "team",
   "plan",
