@@ -4,7 +4,7 @@ SaaS gastronómico multi-tenant en evolución incremental desde el core de Infin
 
 ## Seguimiento
 
-El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 11 están completas; la siguiente etapa planificada es escala horizontal.
+El avance, los entregables pendientes y los criterios de cierre de cada etapa se mantienen en [docs/ROADMAP.md](docs/ROADMAP.md). Las etapas 0 a 12 están completas y la Etapa 13 está preparada para iniciar el piloto real.
 
 ## Estructura
 
@@ -114,6 +114,10 @@ El panel **Reservas** administra horarios, excepciones, señas, lista de espera,
 ## Reportes y operación
 
 El panel **Reportes** presenta ventas por sucursal, canal, medio y franja; tiempos de cocina; rotación; ocupación; no-shows y reconciliación de caja. `/api/internal/metrics` ofrece métricas Prometheus protegidas. La carga, reconexión, E2E y restauración se validan con scripts reproducibles documentados en [docs/STAGE_6.md](docs/STAGE_6.md).
+
+La API puede operar en múltiples réplicas mediante el adapter Redis de Socket.IO. Los emails, vencimientos, mantenimiento y agregados de reportes corren en un worker separado con locks distribuidos; PostgreSQL conserva la fuente de verdad. La topología validada y el presupuesto de conexiones están en [docs/STAGE_12.md](docs/STAGE_12.md).
+
+El lanzamiento controlado permite cerrar o limitar altas por email, ejecutar un gate antes de dirigir tráfico y operar con SLO, alertas, recuperación e incidentes documentados. El paquete de piloto está en [docs/STAGE_13.md](docs/STAGE_13.md).
 
 Los cobros en efectivo crean exactamente un movimiento ligado al pago. El cierre persiste ventas netas por medio, efectivo esperado, efectivo declarado y diferencia. `OrderPayment`, `CashRegisterSession` y `CashMovement` pertenecen al dominio operativo del restaurante; `Subscription` y `BillingInvoice` continúan aislados para la facturación del SaaS. Los detalles están en [docs/STAGE_4.md](docs/STAGE_4.md).
 

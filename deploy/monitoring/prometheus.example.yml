@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/infinityfood-alert-rules.yml
+
+scrape_configs:
+  - job_name: infinityfood-api
+    metrics_path: /api/internal/metrics
+    scheme: https
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/infinityfood_metrics_token
+    static_configs:
+      - targets:
+          - api.tudominio.com
+        labels:
+          environment: production

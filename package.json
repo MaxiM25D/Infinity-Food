@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm db:up && turbo run dev --parallel",
+    "dev": "pnpm db:up && concurrently -k -n api,worker,web \"pnpm dev:api\" \"pnpm dev:worker\" \"pnpm dev:web\"",
     "dev:web": "pnpm --filter @infinityshop/web dev",
     "dev:api": "pnpm --filter @infinityshop/database build && pnpm --filter @infinityshop/api dev",
+    "dev:worker": "pnpm --filter @infinityshop/database build && pnpm --filter @infinityshop/api dev:worker",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
@@ -24,6 +25,7 @@
     "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test",
     "test:load": "node scripts/load-test.mjs",
     "test:e2e": "playwright test",
+    "test:scale": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-horizontal-scale.ps1",
     "db:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-postgres.ps1",
     "db:restore:drill": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restore-drill.ps1",
     "db:up": "docker compose up -d postgres",
@@ -31,7 +33,9 @@
     "db:logs": "docker compose logs -f postgres",
     "staging:up": "docker compose -f compose.staging.yaml up -d --build --wait",
     "staging:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/staging-smoke.ps1",
-    "staging:down": "docker compose -f compose.staging.yaml down"
+    "staging:down": "docker compose -f compose.staging.yaml down",
+    "pilot:check": "node scripts/pilot-readiness.mjs",
+    "pilot:recovery": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pilot-recovery-drill.ps1"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -44,6 +48,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "concurrently": "^10.0.6",
     "turbo": "2.11.8"
   }
 }

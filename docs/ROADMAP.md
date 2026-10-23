@@ -4,22 +4,22 @@ Este documento es la fuente de seguimiento del producto. Una etapa solo cambia a
 
 Desde la Etapa 8, cada cierre incluye en `docs/STAGE_N.md` un mapa de archivos, rutas, migraciones, pantallas y pruebas para facilitar el seguimiento técnico.
 
-| Etapa | Estado | Objetivo |
-| --- | --- | --- |
-| 0 — Auditoría | COMPLETADA | Inventariar InfinityShop y definir la transformación a InfinityFood. |
-| 1 — Base multi-sucursal | COMPLETADA | Turborepo, pnpm, contexto de tenant/sucursal y roles operativos. |
-| 2 — Carta gastronómica | COMPLETADA | Carta por sucursal, disponibilidad, precios y QR. |
-| 3 — Pedidos y KDS | COMPLETADA | Pedidos QR/mozo, rondas, tickets por estación y tiempo real. |
-| 4 — POS y caja | COMPLETADA | Mesa/mostrador, pagos parciales, devoluciones y arqueo. |
-| 5 — Reservas | COMPLETADA | Disponibilidad, holds, concurrencia, estados y zona horaria. |
-| 6 — Reportes y endurecimiento | COMPLETADA | Métricas reconciliables, E2E, carga, observabilidad y recuperación. |
-| 7 — Estabilización y piloto | COMPLETADA | Seguridad, baseline versionable, branding, E2E operativo y staging reproducible. |
-| 8 — Operación gastronómica avanzada | COMPLETADA | Modificadores, propinas, división de cuenta, mesas e impresión. |
-| 9 — Inventario y costos | COMPLETADA | Stock por sucursal, recetas, ingredientes, compras y proveedores. |
-| 10 — Reservas y fidelización | COMPLETADA | Recordatorios, señas, lista de espera, CRM y comunicación. |
-| 11 — Pagos y fiscalidad | COMPLETADA | Mercado Pago POS automático, conciliación externa y ARCA/facturación. |
-| 12 — Escala horizontal | PENDIENTE | Redis, workers, multirréplica, agregados y observabilidad centralizada. |
-| 13 — Lanzamiento controlado | PENDIENTE | Piloto real, soporte, SLO, runbooks y salida comercial gradual. |
+| Etapa                               | Estado     | Objetivo                                                                         |
+| ----------------------------------- | ---------- | -------------------------------------------------------------------------------- |
+| 0 — Auditoría                       | COMPLETADA | Inventariar InfinityShop y definir la transformación a InfinityFood.             |
+| 1 — Base multi-sucursal             | COMPLETADA | Turborepo, pnpm, contexto de tenant/sucursal y roles operativos.                 |
+| 2 — Carta gastronómica              | COMPLETADA | Carta por sucursal, disponibilidad, precios y QR.                                |
+| 3 — Pedidos y KDS                   | COMPLETADA | Pedidos QR/mozo, rondas, tickets por estación y tiempo real.                     |
+| 4 — POS y caja                      | COMPLETADA | Mesa/mostrador, pagos parciales, devoluciones y arqueo.                          |
+| 5 — Reservas                        | COMPLETADA | Disponibilidad, holds, concurrencia, estados y zona horaria.                     |
+| 6 — Reportes y endurecimiento       | COMPLETADA | Métricas reconciliables, E2E, carga, observabilidad y recuperación.              |
+| 7 — Estabilización y piloto         | COMPLETADA | Seguridad, baseline versionable, branding, E2E operativo y staging reproducible. |
+| 8 — Operación gastronómica avanzada | COMPLETADA | Modificadores, propinas, división de cuenta, mesas e impresión.                  |
+| 9 — Inventario y costos             | COMPLETADA | Stock por sucursal, recetas, ingredientes, compras y proveedores.                |
+| 10 — Reservas y fidelización        | COMPLETADA | Recordatorios, señas, lista de espera, CRM y comunicación.                       |
+| 11 — Pagos y fiscalidad             | COMPLETADA | Mercado Pago POS automático, conciliación externa y ARCA/facturación.            |
+| 12 — Escala horizontal              | COMPLETADA | Redis, workers, multirréplica, agregados y observabilidad centralizada.          |
+| 13 — Lanzamiento controlado         | LISTA PARA PILOTO | Gate, soporte, SLO, recuperación y salida comercial gradual.              |
 
 ## Etapa 7 — Estabilización y piloto
 
@@ -77,17 +77,23 @@ La implementación y sus límites de certificación externa están documentados 
 
 ## Etapa 12 — Escala horizontal
 
-- Redis adapter para Socket.IO.
-- Cola y workers separados de la API.
-- Locks distribuidos para tareas programadas.
-- Agregados incrementales para reportes.
-- Pooling y presupuesto de conexiones PostgreSQL.
-- Pruebas de múltiples réplicas, failover y reconexión.
+- [x] Redis adapter para Socket.IO.
+- [x] Cola persistente y worker separado de la API.
+- [x] Locks distribuidos para tareas programadas.
+- [x] Agregados incrementales e idempotentes para reportes.
+- [x] Pooling y presupuesto de conexiones PostgreSQL.
+- [x] Pruebas de múltiples réplicas, failover y reconexión.
+
+La topología, operación y evidencia reproducible están documentadas en [STAGE_12.md](STAGE_12.md).
 
 ## Etapa 13 — Lanzamiento controlado
 
-- Piloto con una sucursal y una réplica de API.
-- Monitoreo, alertas y guardias definidas.
-- RPO/RTO, backups automáticos y simulacro periódico.
-- Capacitación operativa y manuales por rol.
-- Revisión semanal de métricas, incidentes y feedback antes de ampliar clientes.
+- [x] Altas limitables por allowlist o cierre total sin afectar usuarios existentes.
+- [x] Gate automatizado de salud, versión, dependencias, métricas y web.
+- [x] SLO, alertas, presupuesto de error y runbook de incidentes definidos.
+- [x] Backup y restauración automatizados con evidencia verificable.
+- [x] Manuales y contingencias documentados para todos los roles.
+- [ ] Asignar guardias y canales reales fuera del repositorio.
+- [ ] Completar dos semanas y dos revisiones con un restaurante piloto.
+
+La implementación y los criterios de promoción están en [STAGE_13.md](STAGE_13.md). La etapa queda `LISTA PARA PILOTO`, no `COMPLETADA`, hasta obtener evidencia de operación real.

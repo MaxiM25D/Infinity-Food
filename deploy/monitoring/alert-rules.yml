@@ -1,0 +1,84 @@
+groups:
+  - name: infinityfood-availability
+    rules:
+      - alert: InfinityFoodApiUnavailable
+        expr: up{job="infinityfood-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "InfinityFood API no responde"
+          runbook: "docs/INCIDENT_RESPONSE.md#api-o-base-de-datos-no-disponible"
+
+      - alert: InfinityFoodReplicaMissing
+        expr: absent(infinityfood_build_info)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No se reciben métricas de InfinityFood"
+
+      - alert: InfinityFoodHighServerErrorRate
+        expr: |
+          sum(rate(infinityfood_http_requests_total{status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(infinityfood_http_requests_total[5m])), 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Más de 5% de respuestas HTTP 5xx durante cinco minutos"
+
+      - alert: InfinityFoodHighAverageLatency
+        expr: |
+          sum(rate(infinityfood_http_request_duration_seconds_sum[5m]))
+          /
+          clamp_min(sum(rate(infinityfood_http_request_duration_seconds_count[5m])), 0.001)
+          > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latencia HTTP promedio superior a 1,5 segundos"
+
+  - name: infinityfood-dependencies
+    rules:
+      - alert: InfinityFoodRedisUnavailable
+        expr: min(infinityfood_dependency_up{dependency="redis"}) < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis no está disponible para una o más réplicas"
+
+      - alert: InfinityFoodWorkerStale
+        expr: min(infinityfood_dependency_up{dependency="worker"}) < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "El worker dejó de publicar heartbeat"
+
+      - alert: InfinityFoodNotificationBacklog
+        expr: max(infinityfood_queue_depth{queue="notifications"}) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hay más de 100 notificaciones pendientes"
+
+      - alert: InfinityFoodReportBacklog
+        expr: max(infinityfood_queue_depth{queue="report_aggregates"}) > 250
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Los agregados de reportes están demorados"
+
+      - alert: InfinityFoodBackgroundJobFailure
+        expr: increase(infinityfood_distributed_jobs_total{result="failure"}[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Una tarea distribuida falló"

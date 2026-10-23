@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Este entorno reproduce el piloto con imágenes de producción, PostgreSQL 17, una única réplica de API, almacenamiento persistente local y un SMTP capturable con Mailpit. No utiliza credenciales ni datos de producción.
+Este entorno reproduce el piloto con imágenes de producción, PostgreSQL 17, dos réplicas de API, Redis, un worker independiente, almacenamiento persistente local y un SMTP capturable con Mailpit. No utiliza credenciales ni datos de producción.
 
 Cloudinary, Resend y Mercado Pago sandbox se habilitan únicamente en el staging remoto mediante secretos del proveedor. Los cobros de restaurantes y la facturación SaaS deben usar aplicaciones y credenciales distintas.
 
@@ -13,6 +13,7 @@ Requisitos: Docker Desktop, Node.js 22 y pnpm 10.
 ```powershell
 pnpm staging:up
 pnpm staging:smoke
+pnpm pilot:check
 ```
 
 Servicios:
@@ -21,6 +22,7 @@ Servicios:
 - API: `http://localhost:4100/api/ready`
 - Mailpit: `http://localhost:8025`
 - PostgreSQL: `localhost:55439`
+- Redis: `localhost:56380`
 
 El servicio `migrate` aplica exclusivamente las migraciones versionadas antes de habilitar la API; los planes base ya forman parte de esas migraciones. `docker compose ... up --wait` falla si web, API, PostgreSQL o correo no alcanzan estado saludable.
 
@@ -35,7 +37,7 @@ $dump = Get-ChildItem .\backups\*.dump | Sort-Object LastWriteTime -Descending |
 pnpm db:restore:drill -- -BackupPath $dump.FullName -SkipIsolationTests
 ```
 
-El flag evita ejecutar fixtures que esperan los dos tenants del seed de desarrollo. El drill igualmente restaura con `pg_restore --exit-on-error` y verifica las 31 migraciones con Prisma; la suite normal conserva las pruebas de aislamiento multi-tenant.
+El flag evita ejecutar fixtures que esperan los dos tenants del seed de desarrollo. El drill igualmente restaura con `pg_restore --exit-on-error` y verifica las 37 migraciones con Prisma; la suite normal conserva las pruebas de aislamiento multi-tenant.
 
 Eliminar volúmenes reinicia todos los datos y es destructivo; el comando normal `pnpm staging:down` no los elimina.
 
@@ -67,4 +69,4 @@ Nunca copiar el `.env` local al proveedor. Usar [production.env.example](../depl
 4. Si falla un proveedor, conservar el evento en cola y restablecer el servicio antes de reintentar.
 5. Verificar conciliación de órdenes, pagos y caja antes de cerrar el incidente.
 
-La API debe permanecer en una réplica hasta implementar y validar Redis para Socket.IO y coordinación de jobs en la Etapa 12.
+La topología de staging ejecuta dos réplicas de API detrás de Nginx, Redis para Socket.IO y locks, y un worker independiente. Ejecutar `pnpm test:scale` antes de promover una imagen.

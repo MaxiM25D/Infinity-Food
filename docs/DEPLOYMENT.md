@@ -41,15 +41,15 @@ El release de la API ejecuta `pnpm db:deploy` como pre-deploy. Si una migración
    El pre-deploy lo crea una sola vez; si ya existe, conserva su contraseña y sesiones.
    Mantener `DEMO_STORE_SLUG` con el mismo slug.
 4. Establecer `APP_VERSION` con el SHA del commit desplegado cuando el proveedor no lo inyecte automáticamente.
-5. Configurar un dominio como `api.tudominio.com`.
-6. Confirmar:
-
+5. Durante el piloto usar `PILOT_SIGNUP_MODE=allowlist` y `PILOT_ALLOWED_EMAILS` con los owners autorizados. `closed` congela nuevas altas sin bloquear la operación existente.
+6. Configurar un dominio como `api.tudominio.com`.
+7. Confirmar:
    - `GET /api/health` responde aunque la base esté temporalmente caída.
    - `GET /api/ready` responde `200` únicamente cuando PostgreSQL está disponible.
    - Los logs aparecen como objetos JSON con `requestId`, duración, estado y contexto de tenant.
    - `/api/internal/metrics` responde únicamente con `Authorization: Bearer $METRICS_TOKEN`.
 
-Railway usa `/api/ready` para aceptar un despliegue nuevo. También conviene configurar al menos 15 segundos de *draining* para permitir el apagado seguro por `SIGTERM`.
+Railway usa `/api/ready` para aceptar un despliegue nuevo. También conviene configurar al menos 15 segundos de _draining_ para permitir el apagado seguro por `SIGTERM`.
 
 ## 4. Web en Vercel
 
@@ -65,7 +65,7 @@ Railway usa `/api/ready` para aceptar un despliegue nuevo. También conviene con
 
 5. Asignar `app.tudominio.com` y actualizar `WEB_URL` en la API con ese origen exacto.
 
-`NEXT_PUBLIC_API_URL` y `NEXT_PUBLIC_SOCKET_URL` quedan incorporadas durante el build. Cambiarlas exige un redeploy de la web. La API o su proxy debe permitir upgrades WebSocket sobre `/socket.io`. El despliegue validado usa una réplica de API; no aumentar réplicas hasta incorporar y probar el adapter Redis de Socket.IO y locks distribuidos para jobs periódicos.
+`NEXT_PUBLIC_API_URL` y `NEXT_PUBLIC_SOCKET_URL` quedan incorporadas durante el build. Cambiarlas exige un redeploy de la web. La API o su proxy debe permitir upgrades WebSocket sobre `/socket.io`. La topología multirréplica requiere `REDIS_URL`, un servicio worker con `node apps/api/dist/worker.js` y un proxy con afinidad para el fallback long-polling; WebSocket y los eventos entre réplicas usan Redis.
 
 ## 5. Mercado Pago
 
@@ -151,3 +151,4 @@ pnpm db:restore:drill -- -BackupPath .\backups\infinityfood-AAAAmmdd-HHmmss.dump
 - Backup automático habilitado y restauración ensayada.
 - Monitor HTTP externo sobre `/api/ready` y la página principal.
 - Procedimiento de rollback conocido por quien opere la plataforma.
+- `pnpm pilot:check` aprobado contra el SHA exacto y alertas de `deploy/monitoring` activas.

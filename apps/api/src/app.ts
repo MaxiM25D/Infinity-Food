@@ -29,6 +29,7 @@ import { publicRoot } from "./services/storage.js";
 import { database } from "./database.js";
 import { log } from "./services/logger.js";
 import { prometheusMetrics, recordHttpRequest } from "./services/observability.js";
+import { redisHealth, workerHeartbeat } from "./services/redis.js";
 
 export const app = express();
 
@@ -84,24 +85,35 @@ app.use(cookieParser());
 app.use("/uploads", express.static(publicRoot, { maxAge: "1d" }));
 
 app.get("/api/health", (_request, response) => {
-  response.json({ status: "ok", service: "infinityfood-api", version: environment.APP_VERSION, instanceId: process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local", uptimeSeconds: Math.round(process.uptime()) });
+  response.json({
+    status: "ok",
+    service: "infinityfood-api",
+    version: environment.APP_VERSION,
+    instanceId:
+      environment.INSTANCE_ID ??
+      process.env.RAILWAY_REPLICA_ID ??
+      process.env.HOSTNAME ??
+      "local",
+    uptimeSeconds: Math.round(process.uptime()),
+  });
 });
 
 app.get("/api/ready", async (_request, response) => {
   try {
     const startedAt = performance.now();
-    await database.$queryRaw`SELECT 1`;
-    response.json({ status: "ready", database: "ok", databaseLatencyMs: Math.round((performance.now() - startedAt) * 100) / 100, version: environment.APP_VERSION });
+    const [, redis, worker] = await Promise.all([database.$queryRaw`SELECT 1`, redisHealth(), workerHeartbeat()]);
+    if (redis === "error") throw new Error("Redis no disponible");
+    response.json({ status: "ready", database: "ok", redis, worker, databaseLatencyMs: Math.round((performance.now() - startedAt) * 100) / 100, version: environment.APP_VERSION, instanceId: environment.INSTANCE_ID ?? process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local" });
   } catch (error) {
     log("error", "readiness_failed", { error });
     response.status(503).json({ status: "unavailable", database: "error" });
   }
 });
 
-app.get("/api/internal/metrics", (request, response) => {
+app.get("/api/internal/metrics", async (request, response) => {
   if (!environment.METRICS_TOKEN) { response.status(404).json({ error: "NOT_FOUND", message: "Ruta no encontrada" }); return; }
   if (request.get("authorization") !== `Bearer ${environment.METRICS_TOKEN}`) { response.status(401).json({ error: "UNAUTHORIZED", message: "Credencial de métricas inválida" }); return; }
-  response.type("text/plain; version=0.0.4").send(prometheusMetrics());
+  response.type("text/plain; version=0.0.4").send(await prometheusMetrics());
 });
 
 app.use("/api/auth", authRouter);

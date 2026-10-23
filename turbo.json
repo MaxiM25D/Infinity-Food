@@ -1,7 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_SITE_URL", "API_INTERNAL_URL", "PLATFORM_HOSTS"],
+  "globalEnv": [
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "API_INTERNAL_URL",
+    "PLATFORM_HOSTS"
+  ],
   "globalPassThroughEnv": [
     "DATABASE_URL",
     "NODE_ENV",
@@ -11,7 +16,13 @@
     "MP_TOKEN_ENCRYPTION_KEY",
     "SAAS_BILLING_PROVIDER",
     "SAAS_MP_ACCESS_TOKEN",
-    "SAAS_MP_WEBHOOK_SECRET"
+    "SAAS_MP_WEBHOOK_SECRET",
+    "REDIS_URL",
+    "REDIS_KEY_PREFIX",
+    "INSTANCE_ID",
+    "PILOT_SIGNUP_MODE",
+    "PILOT_ALLOWED_EMAILS",
+    "DATABASE_POOL_MAX"
   ],
   "tasks": {
     "build": {

@@ -3,7 +3,7 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 
 import { database } from "../../database.js";
-import { environment } from "../../config.js";
+import { environment, pilotSignupAllowed } from "../../config.js";
 import { HttpError } from "../../errors.js";
 import {
   createAccountToken,
@@ -84,6 +84,11 @@ async function issueEmailVerification(user: {
 
 authRouter.post("/register", authLimiter, async (request, response) => {
   const input = registerSchema.parse(request.body);
+  if (!pilotSignupAllowed(input.email))
+    throw new HttpError(
+      403,
+      "Las altas están limitadas a los restaurantes habilitados para el piloto",
+    );
   const [existingUser, existingTenant] = await Promise.all([
     database.user.findUnique({
       where: { email: input.email },
@@ -549,6 +554,11 @@ authRouter.post("/tenants", requireSession, async (request, response) => {
     throw new HttpError(403, "Salí del modo soporte antes de crear otra tienda");
   if (!auth.user.emailVerified)
     throw new HttpError(403, "Verificá tu email antes de crear otra tienda");
+  if (!pilotSignupAllowed(auth.user.email))
+    throw new HttpError(
+      403,
+      "La creación de restaurantes está limitada durante el piloto",
+    );
   const input = createTenantSchema.parse(request.body);
   try {
     const tenant = await database.$transaction(async (transaction) => {

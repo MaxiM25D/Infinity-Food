@@ -37,9 +37,13 @@ No pegues secretos en el repositorio. Cargalos en Railway y mantené los archivo
 
 ## 5. Operación inicial
 
+- Configurar `PILOT_SIGNUP_MODE=allowlist` y cargar únicamente los owners aprobados.
+- Ejecutar `pnpm pilot:check` contra las URLs y el SHA desplegados antes de dirigir tráfico.
 - Activar alertas de errores y disponibilidad para web, API y base de datos.
 - Revisar logs de API, cola de emails y webhooks diariamente durante los primeros clientes.
 - Definir responsable y procedimiento para restaurar un backup.
 - Ejecutar `restore-drill.ps1` y registrar fecha, hash, duración y resultado.
-- Mantener una sola réplica de API hasta validar Redis adapter y coordinación de jobs.
+- Redis debe estar disponible, el worker debe publicar heartbeat y `pnpm test:scale` debe pasar antes de aumentar réplicas.
 - Ejecutar una auditoría de Core Web Vitals sobre la URL pública después del despliegue.
+- Registrar responsables de guardia, reemplazo y canal de incidentes; no guardar teléfonos en Git.
+- Revisar [PILOT_SLO.md](PILOT_SLO.md), [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) y [ROLE_MANUALS.md](ROLE_MANUALS.md) con el restaurante piloto.

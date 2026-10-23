@@ -18,6 +18,20 @@ services:
       retries: 20
     restart: unless-stopped
 
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:${STAGING_REDIS_PORT:-56380}:6379"
+    volumes:
+      - staging_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
   mailpit:
     image: axllent/mailpit:v1.27
     ports:
@@ -35,12 +49,20 @@ services:
       dockerfile: Dockerfile.api
     environment: &api_environment
       NODE_ENV: development
-      APP_VERSION: stage-7
+      APP_VERSION: stage-13
+      PILOT_SIGNUP_MODE: ${PILOT_SIGNUP_MODE:-open}
+      PILOT_ALLOWED_EMAILS: ${PILOT_ALLOWED_EMAILS:-}
       DATABASE_URL: postgresql://infinityfood:${STAGING_POSTGRES_PASSWORD:-infinityfood-staging-local}@postgres:5432/infinityfood_staging?schema=public
       API_PUBLIC_URL: http://localhost:${STAGING_API_PORT:-4100}
       WEB_URL: http://localhost:${STAGING_WEB_PORT:-3100}
       LOG_LEVEL: info
       METRICS_TOKEN: ${STAGING_METRICS_TOKEN:-stage7-local-metrics-token}
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: infinityfood-staging
+      WORKER_HEARTBEAT_TTL_SECONDS: 30
+      REPORT_AGGREGATE_INTERVAL_MS: 5000
+      DATABASE_POOL_IDLE_TIMEOUT_MS: 30000
+      DATABASE_POOL_CONNECTION_TIMEOUT_MS: 5000
       SESSION_COOKIE_SAME_SITE: lax
       EMAIL_PROVIDER: smtp
       EMAIL_FROM: staging@infinityfood.local
@@ -58,7 +80,7 @@ services:
         condition: service_healthy
     restart: "no"
 
-  api:
+  api-a:
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -66,8 +88,8 @@ services:
       <<: *api_environment
       API_PORT: 4000
       PORT: 4000
-    ports:
-      - "127.0.0.1:${STAGING_API_PORT:-4100}:4000"
+      INSTANCE_ID: staging-api-a
+      DATABASE_POOL_MAX: 8
     volumes:
       - staging_uploads:/app/storage
     depends_on:
@@ -75,8 +97,84 @@ services:
         condition: service_completed_successfully
       mailpit:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api-b:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      <<: *api_environment
+      API_PORT: 4000
+      PORT: 4000
+      INSTANCE_ID: staging-api-b
+      DATABASE_POOL_MAX: 8
+    volumes:
+      - staging_uploads:/app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: ["node", "apps/api/dist/worker.js"]
+    environment:
+      <<: *api_environment
+      INSTANCE_ID: staging-worker
+      DATABASE_POOL_MAX: 5
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--input-type=module",
+          "-e",
+          "import('./apps/api/dist/services/redis.js').then(async m=>{const status=await m.workerHeartbeat();await m.closeRedis();if(status!=='ok')process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "127.0.0.1:${STAGING_API_PORT:-4100}:4000"
+    volumes:
+      - ./deploy/nginx.scale.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api-a:
+        condition: service_healthy
+      api-b:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4000/api/ready"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -89,14 +187,14 @@ services:
       args:
         NEXT_PUBLIC_API_URL: http://localhost:${STAGING_API_PORT:-4100}/api
         NEXT_PUBLIC_SOCKET_URL: http://localhost:${STAGING_API_PORT:-4100}
-        API_INTERNAL_URL: http://api:4000/api
+        API_INTERNAL_URL: http://gateway:4000/api
     environment:
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
       - "127.0.0.1:${STAGING_WEB_PORT:-3100}:3000"
     depends_on:
-      api:
+      gateway:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
@@ -107,4 +205,5 @@ services:
 
 volumes:
   staging_postgres_data:
+  staging_redis_data:
   staging_uploads:

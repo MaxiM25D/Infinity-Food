@@ -180,6 +180,13 @@ enum FiscalDocumentStatus {
   REJECTED
 }
 
+enum ReportDimension {
+  BRANCH
+  CHANNEL
+  PAYMENT_METHOD
+  HOUR_BAND
+}
+
 enum CashMovementType {
   OPENING
   CASH_SALE
@@ -343,6 +350,8 @@ model Tenant {
   paymentAttempts         PaymentAttempt[]
   fiscalProfiles          FiscalProfile[]
   fiscalDocuments         FiscalDocument[]
+  reportPaymentFacts      ReportPaymentFact[]
+  reportSalesAggregates   ReportSalesAggregate[]
   paymentReceipts         PaymentReceipt[]
   shipments               Shipment[]
   orderStatusHistory      OrderStatusHistory[]
@@ -647,6 +656,8 @@ model Branch {
   paymentAttempts       PaymentAttempt[]
   fiscalProfile         FiscalProfile?
   fiscalDocuments       FiscalDocument[]
+  reportPaymentFacts    ReportPaymentFact[]
+  reportSalesAggregates ReportSalesAggregate[]
   reservationSchedules  ReservationSchedule[]
   reservations          Reservation[]
   reservationAudits     ReservationAudit[]
@@ -1587,6 +1598,7 @@ model OrderPayment {
   allocations          OrderPaymentAllocation[]
   createdBy            User                        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
   paymentAttempt       PaymentAttempt?             @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  reportFact           ReportPaymentFact?
   createdAt            DateTime                    @default(now())
 
   @@unique([tenantId, clientRequestId])
@@ -1596,6 +1608,37 @@ model OrderPayment {
   @@index([tenantId, branchId, cashSessionId, createdAt])
   @@index([tenantId, branchId, refundOfId])
   @@index([createdByUserId])
+}
+
+model ReportPaymentFact {
+  paymentId String   @id
+  tenantId  String
+  branchId  String
+  localDate DateTime @db.Date
+  processedAt DateTime @default(now())
+  payment   OrderPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch       @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+
+  @@index([tenantId, branchId, localDate])
+}
+
+model ReportSalesAggregate {
+  tenantId      String
+  branchId      String
+  localDate     DateTime        @db.Date
+  dimension     ReportDimension
+  dimensionKey  String
+  dimensionLabel String
+  grossInCents  Int             @default(0)
+  refundsInCents Int            @default(0)
+  payments      Int             @default(0)
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch          @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  updatedAt     DateTime        @updatedAt
+
+  @@id([tenantId, branchId, localDate, dimension, dimensionKey])
+  @@index([tenantId, localDate, dimension])
 }
 
 model FiscalProfile {
